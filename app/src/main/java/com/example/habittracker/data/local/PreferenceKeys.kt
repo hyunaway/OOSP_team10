@@ -1,6 +1,7 @@
 // 경로: com/example/habittracker/data/local/PreferenceKeys.kt
 package com.example.habittracker.data.local
 
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -23,4 +24,9 @@ object PreferenceKeys {
     val STREAK_DAYS = intPreferencesKey("streak_days")
     val SLEEP_PREP_WINDOW_MINUTES = intPreferencesKey("sleep_prep_window_minutes")
     val SEASONALITY_PROFILE = stringPreferencesKey("seasonality_profile")
+
+    // 아바타
+    val AVATAR_GENDER = stringPreferencesKey("avatar_gender")
+    val USER_NAME = stringPreferencesKey("user_name")
+    val HAS_ONBOARDING_COMPLETED = booleanPreferencesKey("has_completed_onboarding")
 }

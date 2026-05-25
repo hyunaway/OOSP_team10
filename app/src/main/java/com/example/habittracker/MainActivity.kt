@@ -6,6 +6,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
@@ -19,6 +22,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -30,9 +35,11 @@ import androidx.navigation.navDeepLink
 import com.example.habittracker.ui.digital.DigitalInputScreen
 import com.example.habittracker.ui.home.HomeScreen
 import com.example.habittracker.ui.meal.MealInputScreen
+import com.example.habittracker.ui.onboarding.OnboardingScreen
 import com.example.habittracker.ui.reports.ReportsScreen
 import com.example.habittracker.ui.settings.SettingsScreen
 import com.example.habittracker.ui.stretch.StretchInputScreen
+import com.example.habittracker.ui.theme.HabitBackground
 import com.example.habittracker.ui.theme.HabitTrackerTheme
 import com.example.habittracker.ui.water.WaterInputScreen
 import dagger.hilt.android.AndroidEntryPoint
@@ -61,6 +68,7 @@ class MainActivity : ComponentActivity() {
 }
 
 object Routes {
+    const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val WATER = "water"
     const val MEAL = "meal"
@@ -72,9 +80,22 @@ object Routes {
 
 @Composable
 private fun HabitTrackerApp(navController: NavHostController) {
+    val mainViewModel: MainViewModel = hiltViewModel()
+    val hasCompletedOnboarding by mainViewModel.hasCompletedOnboarding.collectAsStateWithLifecycle()
+
+    // DataStore 값을 읽는 동안 크림 배경 표시
+    if (hasCompletedOnboarding == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(HabitBackground),
+        )
+        return
+    }
+
+    val startDestination = if (hasCompletedOnboarding == true) Routes.HOME else Routes.ONBOARDING
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route?.substringBefore("?")
-
     val bottomNavRoutes = setOf(Routes.HOME, Routes.REPORTS, Routes.SETTINGS)
 
     Scaffold(
@@ -86,9 +107,19 @@ private fun HabitTrackerApp(navController: NavHostController) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.HOME,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
         ) {
+            composable(Routes.ONBOARDING) {
+                OnboardingScreen(
+                    onComplete = {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable(
                 route = Routes.HOME,
                 deepLinks = listOf(navDeepLink { uriPattern = "app://habittracker/home" }),

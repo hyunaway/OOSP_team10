@@ -62,6 +62,15 @@ class UserPreferenceManager @Inject constructor(
     val seasonalityProfileFlow: Flow<String> = dataStore.data.map {
         it[PreferenceKeys.SEASONALITY_PROFILE] ?: ""
     }
+    val avatarGenderFlow: Flow<String> = dataStore.data.map {
+        it[PreferenceKeys.AVATAR_GENDER] ?: DEFAULT_AVATAR_GENDER
+    }
+    val userNameFlow: Flow<String> = dataStore.data.map {
+        it[PreferenceKeys.USER_NAME] ?: DEFAULT_USER_NAME
+    }
+    val hasCompletedOnboardingFlow: Flow<Boolean> = dataStore.data.map {
+        it[PreferenceKeys.HAS_ONBOARDING_COMPLETED] ?: false
+    }
 
     // ── Update functions ─────────────────────────────────────────────────────
 
@@ -133,6 +142,18 @@ class UserPreferenceManager @Inject constructor(
         dataStore.edit { it[PreferenceKeys.SEASONALITY_PROFILE] = value }
     }
 
+    suspend fun updateAvatarGender(value: String) {
+        dataStore.edit { it[PreferenceKeys.AVATAR_GENDER] = value }
+    }
+
+    suspend fun updateUserName(value: String) {
+        dataStore.edit { it[PreferenceKeys.USER_NAME] = value }
+    }
+
+    suspend fun updateHasCompletedOnboarding(value: Boolean) {
+        dataStore.edit { it[PreferenceKeys.HAS_ONBOARDING_COMPLETED] = value }
+    }
+
     // ── Utility ──────────────────────────────────────────────────────────────
 
     fun getBedTimeAsMinutes(): Flow<Int> = bedTimeFlow.map { parseTimeToMinutes(it) }
@@ -160,5 +181,7 @@ class UserPreferenceManager @Inject constructor(
         const val DEFAULT_NOTIFICATION_FATIGUE_SCORE = 0.0f
         const val DEFAULT_STREAK_DAYS = 0
         const val DEFAULT_SLEEP_PREP_WINDOW_MINUTES = 60
+        const val DEFAULT_AVATAR_GENDER = "MALE"
+        const val DEFAULT_USER_NAME = ""
     }
 }

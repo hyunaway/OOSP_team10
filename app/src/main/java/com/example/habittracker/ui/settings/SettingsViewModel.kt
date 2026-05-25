@@ -5,6 +5,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.ui.avatar.AvatarGender
 import com.example.habittracker.worker.WorkScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,12 @@ class SettingsViewModel @Inject constructor(
                     preferredMessageTone = tone,
                 )
             }
+                .combine(userPreferenceManager.avatarGenderFlow) { state, gender ->
+                    state.copy(avatarGender = AvatarGender.fromString(gender))
+                }
+                .combine(userPreferenceManager.userNameFlow) { state, name ->
+                    state.copy(userName = name)
+                }
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
                 .collect { state -> _uiState.value = state }
         }
@@ -62,6 +69,14 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(preferredMessageTone = tone, isSaved = false) }
     }
 
+    fun updateAvatarGender(gender: AvatarGender) {
+        _uiState.update { it.copy(avatarGender = gender, isSaved = false) }
+    }
+
+    fun updateUserName(name: String) {
+        _uiState.update { it.copy(userName = name, isSaved = false) }
+    }
+
     fun saveSettings() {
         viewModelScope.launch {
             try {
@@ -70,6 +85,8 @@ class SettingsViewModel @Inject constructor(
                 userPreferenceManager.updateWakeTime(state.wakeTime)
                 userPreferenceManager.updateWaterReminderIntervalMinutes(state.waterReminderIntervalMinutes)
                 userPreferenceManager.updatePreferredMessageTone(state.preferredMessageTone)
+                userPreferenceManager.updateAvatarGender(state.avatarGender.name)
+                userPreferenceManager.updateUserName(state.userName.trim().ifEmpty { "나" })
                 WorkScheduler.rescheduleAll(getApplication(), userPreferenceManager)
                 _uiState.update { it.copy(isSaved = true, errorMessage = null) }
             } catch (e: Exception) {
