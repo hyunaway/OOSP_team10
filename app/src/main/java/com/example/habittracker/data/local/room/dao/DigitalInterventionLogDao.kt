@@ -33,6 +33,14 @@ abstract class DigitalInterventionLogDao {
     @Query("SELECT * FROM digital_interventions WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
     protected abstract fun getInterventionsBetween(start: Long, end: Long): Flow<List<DigitalInterventionLogEntity>>
 
+    @Query("""
+        SELECT * FROM digital_interventions
+        WHERE appPackage = :appPackage
+        ORDER BY timestamp DESC
+        LIMIT 1
+    """)
+    abstract suspend fun getLatestInterventionForApp(appPackage: String): DigitalInterventionLogEntity?
+
     private fun todayStart(): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)

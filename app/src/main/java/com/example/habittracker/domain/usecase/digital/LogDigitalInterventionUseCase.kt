@@ -14,5 +14,12 @@ class LogDigitalInterventionUseCase @Inject constructor(
         triggerDuration: Int,
         messageTone: String,
         timestamp: Long = System.currentTimeMillis(),
-    ): Long = digitalRepository.logIntervention(appPackage, triggerDuration, messageTone, timestamp)
+        actionType: String = "",
+    ): Long = digitalRepository.logIntervention(
+        appPackage = appPackage,
+        triggerDuration = triggerDuration,
+        messageTone = messageTone,
+        timestamp = timestamp,
+        actionType = actionType,
+    )
 }

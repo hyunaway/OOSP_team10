@@ -59,14 +59,19 @@ class DigitalRepositoryImpl @Inject constructor(
         triggerDuration: Int,
         messageTone: String,
         timestamp: Long,
+        actionType: String,
     ): Long = digitalInterventionLogDao.insert(
         DigitalInterventionLogEntity(
             appPackage = appPackage,
             triggerDurationMinutes = triggerDuration,
             timestamp = timestamp,
             messageTone = messageTone,
+            actionType = actionType,
         )
     )
+
+    override suspend fun getLatestInterventionTimestamp(appPackage: String): Long? =
+        digitalInterventionLogDao.getLatestInterventionForApp(appPackage)?.timestamp
 
     override suspend fun updateInterventionReaction(id: Long, reacted: Boolean, actionType: String) {
         digitalInterventionLogDao.updateReaction(id, reacted, actionType)
