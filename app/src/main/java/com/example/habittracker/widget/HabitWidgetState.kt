@@ -9,7 +9,18 @@ data class HabitWidgetState(
     val waterShortageLevel: WaterShortageLevel,
     val waterStatusText: String,
     val speechBubbleMessage: String,
+    val abnormalStatusText: String,
+    val abnormalStatusType: WidgetAbnormalStatusType,
+    val abnormalStatusColor: Int,
+    val widgetMessage: String,
     val stretchCount: Int,
     val avatarHealthScore: Int,
     val avatarEmoji: String,
 )
+
+enum class WidgetAbnormalStatusType {
+    NONE,
+    WATER,
+    DIGITAL,
+    STRETCH,
+}
