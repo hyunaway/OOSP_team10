@@ -17,17 +17,25 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -56,6 +64,9 @@ fun WaterInputScreen(
     val avatarVm: SharedAvatarViewModel = hiltViewModel()
     val avatarUiState by avatarVm.uiState.collectAsStateWithLifecycle()
     val status = uiState.todayStatus
+    var customAmountText by remember { mutableStateOf("") }
+    var inputError by remember { mutableStateOf<String?>(null) }
+    var pendingAmountMl by remember { mutableIntStateOf(0) }
 
     val speech = when {
         status == null -> "물을 마시는 것도 좋은 습관이에요! 💧"
@@ -74,12 +85,44 @@ fun WaterInputScreen(
     ) {
         WaterStatusCard(status = status)
         WaterQuickAddCard(
-            onAdd = { viewModel.onDrinkButtonClick(it) },
+            customAmountText = customAmountText,
+            inputError = inputError,
+            onCustomAmountChange = {
+                customAmountText = it
+                inputError = null
+            },
+            onAdd = {
+                pendingAmountMl = it
+            },
+            onCustomAdd = {
+                val amount = customAmountText.toIntOrNull()
+                if (amount == null || amount <= 0) {
+                    inputError = "1ml 이상의 숫자를 입력해주세요."
+                } else {
+                    inputError = null
+                    pendingAmountMl = amount
+                }
+            },
             onBack = { navController.popBackStack() },
         )
         uiState.errorMessage?.let { msg ->
             Text(text = msg, color = MaterialTheme.colorScheme.error)
         }
+    }
+
+    if (pendingAmountMl > 0) {
+        WaterConfirmDialog(
+            amountMl = pendingAmountMl,
+            onConfirm = {
+                viewModel.onDrinkButtonClick(pendingAmountMl)
+                pendingAmountMl = 0
+                customAmountText = ""
+                inputError = null
+            },
+            onDismiss = {
+                pendingAmountMl = 0
+            },
+        )
     }
 }
 
@@ -184,7 +227,11 @@ private fun WaterStatusCard(status: WaterTodayStatus?) {
 
 @Composable
 private fun WaterQuickAddCard(
+    customAmountText: String,
+    inputError: String?,
+    onCustomAmountChange: (String) -> Unit,
     onAdd: (Int) -> Unit,
+    onCustomAdd: () -> Unit,
     onBack: () -> Unit,
 ) {
     Card(
@@ -220,6 +267,27 @@ private fun WaterQuickAddCard(
                     onClick = { onAdd(500) },
                 )
             }
+            OutlinedTextField(
+                value = customAmountText,
+                onValueChange = onCustomAmountChange,
+                label = { Text("직접 입력 (ml)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = inputError != null,
+                supportingText = {
+                    inputError?.let { Text(it) }
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(HabitRadius.md),
+            )
+            Button(
+                onClick = onCustomAdd,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(HabitRadius.button),
+                colors = ButtonDefaults.buttonColors(containerColor = WaterPrimary),
+            ) {
+                Text("직접 입력", color = Color.White, fontWeight = FontWeight.Bold)
+            }
             OutlinedButton(
                 onClick = onBack,
                 modifier = Modifier.fillMaxWidth(),
@@ -229,6 +297,34 @@ private fun WaterQuickAddCard(
             }
         }
     }
+}
+
+@Composable
+private fun WaterConfirmDialog(
+    amountMl: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            Text(
+                text = "${amountMl}ml 마셨나요?",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("확인")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        },
+    )
 }
 
 @Composable
