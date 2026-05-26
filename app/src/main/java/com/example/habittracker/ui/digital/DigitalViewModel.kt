@@ -3,6 +3,7 @@ package com.example.habittracker.ui.digital
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.domain.usecase.digital.GetTodayDigitalStatusUseCase
 import com.example.habittracker.domain.usecase.digital.UpdateInterventionReactionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,6 +19,7 @@ import javax.inject.Inject
 class DigitalViewModel @Inject constructor(
     private val getTodayDigitalStatusUseCase: GetTodayDigitalStatusUseCase,
     private val updateInterventionReactionUseCase: UpdateInterventionReactionUseCase,
+    private val userPreferenceManager: UserPreferenceManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DigitalUiState())
@@ -29,6 +31,13 @@ class DigitalViewModel @Inject constructor(
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
                 .collect { status ->
                     _uiState.update { it.copy(loading = false, todayStatus = status) }
+                }
+        }
+        viewModelScope.launch {
+            userPreferenceManager.selectedDigitalPackagesFlow
+                .catch { e -> _uiState.update { it.copy(errorMessage = e.message) } }
+                .collect { packages ->
+                    _uiState.update { it.copy(selectedDigitalPackages = packages) }
                 }
         }
     }

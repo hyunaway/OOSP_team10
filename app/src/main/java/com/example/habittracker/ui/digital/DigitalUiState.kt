@@ -7,4 +7,5 @@ data class DigitalUiState(
     val loading: Boolean = true,
     val errorMessage: String? = null,
     val todayStatus: DigitalTodayStatus? = null,
+    val selectedDigitalPackages: Set<String> = emptySet(),
 )

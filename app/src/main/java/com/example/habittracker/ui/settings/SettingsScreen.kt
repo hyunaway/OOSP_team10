@@ -37,6 +37,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,8 +47,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -91,11 +94,21 @@ fun SettingsScreen(
     }
 
     var lateNightStart by remember { mutableStateOf("22:00") }
-    var digitalBaseDuration by remember { mutableStateOf("30") }
+    var thresholdText by remember { mutableStateOf(uiState.digitalInterventionThresholdMinutes.toString()) }
+    var cooldownText by remember { mutableStateOf(uiState.digitalInterventionCooldownMinutes.toString()) }
+    var thresholdError by remember { mutableStateOf<String?>(null) }
+    var cooldownError by remember { mutableStateOf<String?>(null) }
     var waterNotifEnabled by remember { mutableStateOf(true) }
     var mealNotifEnabled by remember { mutableStateOf(true) }
     var stretchNotifEnabled by remember { mutableStateOf(true) }
     var digitalNotifEnabled by remember { mutableStateOf(true) }
+
+    LaunchedEffect(uiState.digitalInterventionThresholdMinutes) {
+        thresholdText = uiState.digitalInterventionThresholdMinutes.toString()
+    }
+    LaunchedEffect(uiState.digitalInterventionCooldownMinutes) {
+        cooldownText = uiState.digitalInterventionCooldownMinutes.toString()
+    }
 
     Column(
         modifier = Modifier
@@ -193,11 +206,58 @@ fun SettingsScreen(
 
             SettingsCard(title = "디지털 기준") {
                 OutlinedTextField(
-                    value = digitalBaseDuration,
-                    onValueChange = { digitalBaseDuration = it },
-                    label = { Text("기준 사용 시간 (분)") },
+                    value = thresholdText,
+                    onValueChange = { value ->
+                        thresholdText = value
+                        val minutes = value.toIntOrNull()
+                        if (minutes == null || minutes <= 0) {
+                            thresholdError = "1분 이상의 숫자를 입력해주세요."
+                        } else {
+                            thresholdError = null
+                            viewModel.updateDigitalInterventionThresholdMinutes(minutes)
+                        }
+                    },
+                    label = { Text("개입 기준 시간 (분)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    isError = thresholdError != null,
+                    supportingText = { thresholdError?.let { Text(it) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.sm))
+                OutlinedTextField(
+                    value = cooldownText,
+                    onValueChange = { value ->
+                        cooldownText = value
+                        val minutes = value.toIntOrNull()
+                        if (minutes == null || minutes <= 0) {
+                            cooldownError = "1분 이상의 숫자를 입력해주세요."
+                        } else {
+                            cooldownError = null
+                            viewModel.updateDigitalInterventionCooldownMinutes(minutes)
+                        }
+                    },
+                    label = { Text("알림 쿨다운 (분)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = cooldownError != null,
+                    supportingText = { cooldownError?.let { Text(it) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+            }
+
+            SettingsCard(title = "관리 앱 선택") {
+                Text(
+                    text = "관리 앱 ${uiState.selectedDigitalPackages.size}개 선택됨",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = HabitTextPrimary,
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.xs))
+                Text(
+                    text = "디지털 화면에서 관리 앱을 설정할 수 있어요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HabitTextSecondary,
                 )
             }
 

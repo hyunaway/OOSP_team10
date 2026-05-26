@@ -47,6 +47,15 @@ class UserPreferenceManager @Inject constructor(
     val weekendDigitalLimitMapFlow: Flow<String> = dataStore.data.map {
         it[PreferenceKeys.WEEKEND_DIGITAL_LIMIT_MAP] ?: ""
     }
+    val selectedDigitalPackagesFlow: Flow<Set<String>> = dataStore.data.map {
+        parsePackageSet(it[PreferenceKeys.SELECTED_DIGITAL_PACKAGES] ?: "")
+    }
+    val digitalInterventionThresholdMinutesFlow: Flow<Int> = dataStore.data.map {
+        it[PreferenceKeys.DIGITAL_INTERVENTION_THRESHOLD_MINUTES] ?: DEFAULT_DIGITAL_INTERVENTION_THRESHOLD_MINUTES
+    }
+    val digitalInterventionCooldownMinutesFlow: Flow<Int> = dataStore.data.map {
+        it[PreferenceKeys.DIGITAL_INTERVENTION_COOLDOWN_MINUTES] ?: DEFAULT_DIGITAL_INTERVENTION_COOLDOWN_MINUTES
+    }
     val stretchInactiveHoursFlow: Flow<String> = dataStore.data.map {
         it[PreferenceKeys.STRETCH_INACTIVE_HOURS] ?: ""
     }
@@ -122,6 +131,20 @@ class UserPreferenceManager @Inject constructor(
         dataStore.edit { it[PreferenceKeys.WEEKEND_DIGITAL_LIMIT_MAP] = value }
     }
 
+    suspend fun updateSelectedDigitalPackages(value: Set<String>) {
+        dataStore.edit {
+            it[PreferenceKeys.SELECTED_DIGITAL_PACKAGES] = value.sorted().joinToString(",")
+        }
+    }
+
+    suspend fun updateDigitalInterventionThresholdMinutes(value: Int) {
+        dataStore.edit { it[PreferenceKeys.DIGITAL_INTERVENTION_THRESHOLD_MINUTES] = value }
+    }
+
+    suspend fun updateDigitalInterventionCooldownMinutes(value: Int) {
+        dataStore.edit { it[PreferenceKeys.DIGITAL_INTERVENTION_COOLDOWN_MINUTES] = value }
+    }
+
     suspend fun updateStretchInactiveHours(value: String) {
         dataStore.edit { it[PreferenceKeys.STRETCH_INACTIVE_HOURS] = value }
     }
@@ -169,6 +192,12 @@ class UserPreferenceManager @Inject constructor(
         }
     }
 
+    private fun parsePackageSet(value: String): Set<String> =
+        value.split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+
     // ── Defaults ─────────────────────────────────────────────────────────────
 
     companion object {
@@ -177,6 +206,8 @@ class UserPreferenceManager @Inject constructor(
         const val DEFAULT_WATER_REMINDER_INTERVAL_MINUTES = 180
         const val DEFAULT_LATE_NIGHT_START_TIME = "22:00"
         const val DEFAULT_DIGITAL_INTERVENTION_BASE_DURATION = 30
+        const val DEFAULT_DIGITAL_INTERVENTION_THRESHOLD_MINUTES = 30
+        const val DEFAULT_DIGITAL_INTERVENTION_COOLDOWN_MINUTES = 60
         const val DEFAULT_PREFERRED_MESSAGE_TONE = "EMPATHY"
         const val DEFAULT_NOTIFICATION_FATIGUE_SCORE = 0.0f
         const val DEFAULT_STREAK_DAYS = 0

@@ -32,6 +32,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import com.example.habittracker.ui.digital.DigitalAppSelectionScreen
 import com.example.habittracker.ui.digital.DigitalInputScreen
 import com.example.habittracker.ui.home.HomeScreen
 import com.example.habittracker.ui.meal.MealInputScreen
@@ -73,6 +74,7 @@ object Routes {
     const val WATER = "water"
     const val MEAL = "meal"
     const val DIGITAL = "digital"
+    const val DIGITAL_APP_SELECTION = "digitalAppSelection"
     const val STRETCH = "stretch"
     const val REPORTS = "reports"
     const val SETTINGS = "settings"
@@ -164,6 +166,12 @@ private fun HabitTrackerApp(navController: NavHostController) {
             ) { backStackEntry ->
                 val interventionId = backStackEntry.arguments?.getLong("interventionId") ?: -1L
                 DigitalInputScreen(navController, interventionId)
+            }
+
+            composable(Routes.DIGITAL_APP_SELECTION) {
+                DigitalAppSelectionScreen(
+                    onBack = { navController.popBackStack() },
+                )
             }
 
             composable(

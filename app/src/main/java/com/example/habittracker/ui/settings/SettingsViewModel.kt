@@ -54,6 +54,15 @@ class SettingsViewModel @Inject constructor(
                 .combine(userPreferenceManager.userNameFlow) { state, name ->
                     state.copy(userName = name)
                 }
+                .combine(userPreferenceManager.selectedDigitalPackagesFlow) { state, packages ->
+                    state.copy(selectedDigitalPackages = packages)
+                }
+                .combine(userPreferenceManager.digitalInterventionThresholdMinutesFlow) { state, threshold ->
+                    state.copy(digitalInterventionThresholdMinutes = threshold)
+                }
+                .combine(userPreferenceManager.digitalInterventionCooldownMinutesFlow) { state, cooldown ->
+                    state.copy(digitalInterventionCooldownMinutes = cooldown)
+                }
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
                 .collect { state ->
                     val current = _uiState.value
@@ -83,6 +92,35 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(preferredMessageTone = tone, isSaved = false) }
     }
 
+    fun updateSelectedDigitalPackages(packages: Set<String>) {
+        _uiState.update { it.copy(selectedDigitalPackages = packages, isSaved = false) }
+        viewModelScope.launch {
+            userPreferenceManager.updateSelectedDigitalPackages(packages)
+        }
+    }
+
+    fun toggleSelectedDigitalPackage(packageName: String) {
+        var updatedPackages: Set<String> = emptySet()
+        _uiState.update { state ->
+            val updated = state.selectedDigitalPackages.toMutableSet().apply {
+                if (!add(packageName)) remove(packageName)
+            }
+            updatedPackages = updated
+            state.copy(selectedDigitalPackages = updated, isSaved = false)
+        }
+        viewModelScope.launch {
+            userPreferenceManager.updateSelectedDigitalPackages(updatedPackages)
+        }
+    }
+
+    fun updateDigitalInterventionThresholdMinutes(minutes: Int) {
+        _uiState.update { it.copy(digitalInterventionThresholdMinutes = minutes, isSaved = false) }
+    }
+
+    fun updateDigitalInterventionCooldownMinutes(minutes: Int) {
+        _uiState.update { it.copy(digitalInterventionCooldownMinutes = minutes, isSaved = false) }
+    }
+
     fun updateAvatarGender(gender: AvatarGender) {
         _uiState.update { it.copy(avatarGender = gender, isSaved = false) }
     }
@@ -101,6 +139,9 @@ class SettingsViewModel @Inject constructor(
                 userPreferenceManager.updatePreferredMessageTone(state.preferredMessageTone)
                 userPreferenceManager.updateAvatarGender(state.avatarGender.name)
                 userPreferenceManager.updateUserName(state.userName.trim().ifEmpty { "나" })
+                userPreferenceManager.updateSelectedDigitalPackages(state.selectedDigitalPackages)
+                userPreferenceManager.updateDigitalInterventionThresholdMinutes(state.digitalInterventionThresholdMinutes)
+                userPreferenceManager.updateDigitalInterventionCooldownMinutes(state.digitalInterventionCooldownMinutes)
                 WorkScheduler.rescheduleAll(getApplication(), userPreferenceManager)
                 _uiState.update { it.copy(isSaved = true, errorMessage = null) }
             } catch (e: Exception) {

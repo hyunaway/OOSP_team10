@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.example.habittracker.Routes
 import com.example.habittracker.domain.model.DigitalTodayStatus
 import com.example.habittracker.ui.avatar.SharedAvatarViewModel
 import com.example.habittracker.ui.components.CategoryScaffold
@@ -74,6 +75,10 @@ fun DigitalInputScreen(
         onReportsClick = { navController.navigate("reports") },
     ) {
         DigitalStatusCard(status = status)
+        DigitalManageAppsCard(
+            selectedCount = uiState.selectedDigitalPackages.size,
+            onClick = { navController.navigate(Routes.DIGITAL_APP_SELECTION) },
+        )
         DigitalActionCard(
             interventionId = interventionId,
             onBreak = {
@@ -91,6 +96,48 @@ fun DigitalInputScreen(
         )
         uiState.errorMessage?.let { msg ->
             Text(text = msg, color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+@Composable
+private fun DigitalManageAppsCard(
+    selectedCount: Int,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(HabitRadius.card),
+        colors = CardDefaults.cardColors(containerColor = HabitCardWhite),
+        elevation = CardDefaults.cardElevation(defaultElevation = HabitElevation.card),
+    ) {
+        Column(
+            modifier = Modifier.padding(HabitSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
+        ) {
+            Text(
+                text = "관리 앱 설정",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = HabitTextPrimary,
+            )
+            Text(
+                text = if (selectedCount > 0) {
+                    "관리 앱 ${selectedCount}개 선택됨"
+                } else {
+                    "관리할 앱을 선택하면 사용 시간이 기준을 넘었을 때 개입할 수 있어요."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = HabitTextSecondary,
+            )
+            Button(
+                onClick = onClick,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(HabitRadius.button),
+                colors = ButtonDefaults.buttonColors(containerColor = DigitalPrimary),
+            ) {
+                Text("관리 앱 설정하기", color = Color.White, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

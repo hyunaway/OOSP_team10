@@ -44,6 +44,17 @@
                 android:textColor="#FF424242" />
 
             <TextView
+                android:id="@+id/speechText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="좋아요. 지금 물 섭취 리듬은 괜찮아요."
+                android:textSize="10sp"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:textColor="#FFD32F2F"
+                android:layout_marginTop="2dp" />
+
+            <TextView
                 android:id="@+id/stretchText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
