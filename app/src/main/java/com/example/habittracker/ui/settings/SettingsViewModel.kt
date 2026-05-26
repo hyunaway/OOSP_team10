@@ -1,10 +1,15 @@
 // 경로: com/example/habittracker/ui/settings/SettingsViewModel.kt
 package com.example.habittracker.ui.settings
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.data.usage.UsageStatsHelper
 import com.example.habittracker.ui.avatar.AvatarGender
 import com.example.habittracker.worker.WorkScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,6 +26,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     application: Application,
     private val userPreferenceManager: UserPreferenceManager,
+    private val usageStatsHelper: UsageStatsHelper,
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -49,8 +55,16 @@ class SettingsViewModel @Inject constructor(
                     state.copy(userName = name)
                 }
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
-                .collect { state -> _uiState.value = state }
+                .collect { state ->
+                    val current = _uiState.value
+                    _uiState.value = state.copy(
+                        notificationPermissionGranted = current.notificationPermissionGranted,
+                        usageAccessGranted = current.usageAccessGranted,
+                    )
+                    refreshPermissionStates()
+                }
         }
+        refreshPermissionStates()
     }
 
     fun updateBedTime(value: String) {
@@ -97,5 +111,28 @@ class SettingsViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun refreshPermissionStates() {
+        _uiState.update {
+            it.copy(
+                notificationPermissionGranted = hasNotificationPermission(),
+                usageAccessGranted = usageStatsHelper.hasUsageAccess(),
+            )
+        }
+    }
+
+    fun onNotificationPermissionResult(granted: Boolean) {
+        _uiState.update {
+            it.copy(notificationPermissionGranted = granted || hasNotificationPermission())
+        }
+    }
+
+    private fun hasNotificationPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(
+            getApplication(),
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
     }
 }

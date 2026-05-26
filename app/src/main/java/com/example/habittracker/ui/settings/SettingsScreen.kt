@@ -1,6 +1,12 @@
 // 경로: com/example/habittracker/ui/settings/SettingsScreen.kt
 package com.example.habittracker.ui.settings
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,6 +36,7 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,11 +44,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.habittracker.ui.avatar.AvatarGender
 import com.example.habittracker.ui.avatar.AvatarImageMapper
 import com.example.habittracker.ui.avatar.AvatarState
@@ -61,6 +72,23 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        viewModel.onNotificationPermissionResult(granted)
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshPermissionStates()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var lateNightStart by remember { mutableStateOf("22:00") }
     var digitalBaseDuration by remember { mutableStateOf("30") }
@@ -173,6 +201,47 @@ fun SettingsScreen(
                 )
             }
 
+            SettingsCard(title = "권한") {
+                PermissionStatusRow(
+                    label = "알림 권한",
+                    granted = uiState.notificationPermissionGranted,
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.sm))
+                Button(
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            viewModel.refreshPermissionStates()
+                        }
+                    },
+                    enabled = !uiState.notificationPermissionGranted,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(HabitRadius.button),
+                    colors = ButtonDefaults.buttonColors(containerColor = HabitDeepMint),
+                ) {
+                    Text("알림 권한 요청", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(HabitSpacing.md))
+
+                PermissionStatusRow(
+                    label = "사용 기록 접근 권한",
+                    granted = uiState.usageAccessGranted,
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.sm))
+                OutlinedButton(
+                    onClick = {
+                        context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                    },
+                    enabled = !uiState.usageAccessGranted,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(HabitRadius.button),
+                ) {
+                    Text("사용 기록 접근 권한 허용", color = HabitTextSecondary)
+                }
+            }
+
             SettingsCard(title = "메시지 톤") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -261,6 +330,26 @@ private fun SettingsCard(
             Spacer(modifier = Modifier.height(HabitSpacing.md))
             content()
         }
+    }
+}
+
+@Composable
+private fun PermissionStatusRow(
+    label: String,
+    granted: Boolean,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = if (granted) "허용됨" else "필요함",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (granted) HabitDeepMint else MaterialTheme.colorScheme.error,
+        )
     }
 }
 

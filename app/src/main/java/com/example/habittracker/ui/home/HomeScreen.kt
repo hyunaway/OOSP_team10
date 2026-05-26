@@ -1,6 +1,11 @@
 // 경로: com/example/habittracker/ui/home/HomeScreen.kt
 package com.example.habittracker.ui.home
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -44,19 +49,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.example.habittracker.domain.model.DigitalTodayStatus
 import com.example.habittracker.domain.model.MealTodayStatus
@@ -90,8 +103,23 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
+    var showNotificationWarning by remember {
+        mutableStateOf(!hasNotificationPermission(context))
+    }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                showNotificationWarning = !hasNotificationPermission(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Box(
         modifier = Modifier
@@ -104,6 +132,10 @@ fun HomeScreen(
                 onSettingsClick = { navController.navigate("settings") },
                 onReportsClick = { navController.navigate("reports") },
             )
+
+            if (showNotificationWarning) {
+                NotificationPermissionWarning()
+            }
 
             if (uiState.loading) {
                 Box(
@@ -159,6 +191,27 @@ fun HomeScreen(
 }
 
 // ── 상단 바 ───────────────────────────────────────────────────────────────────
+
+private fun hasNotificationPermission(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.POST_NOTIFICATIONS,
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
+@Composable
+private fun NotificationPermissionWarning() {
+    Text(
+        text = "알림 권한이 꺼져 있어 원활한 습관 개입이 어렵습니다. 설정에서 알림 권한을 허용해주세요.",
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = HabitSpacing.base, vertical = HabitSpacing.xs),
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.error,
+    )
+}
 
 @Composable
 private fun HomeTopBar(

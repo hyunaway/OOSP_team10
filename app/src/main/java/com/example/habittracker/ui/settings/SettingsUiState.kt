@@ -7,6 +7,8 @@ import com.example.habittracker.ui.avatar.AvatarGender
 data class SettingsUiState(
     val loading: Boolean = true,
     val errorMessage: String? = null,
+    val notificationPermissionGranted: Boolean = false,
+    val usageAccessGranted: Boolean = false,
     val bedTime: String = UserPreferenceManager.DEFAULT_BED_TIME,
     val wakeTime: String = UserPreferenceManager.DEFAULT_WAKE_TIME,
     val waterReminderIntervalMinutes: Int = UserPreferenceManager.DEFAULT_WATER_REMINDER_INTERVAL_MINUTES,

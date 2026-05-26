@@ -1,6 +1,13 @@
 // 경로: com/example/habittracker/ui/onboarding/OnboardingScreen.kt
 package com.example.habittracker.ui.onboarding
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -28,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,6 +57,13 @@ fun OnboardingScreen(
     viewModel: OnboardingViewModel = hiltViewModel(),
     onComplete: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) {
+        viewModel.completeOnboarding(onComplete)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -117,7 +132,13 @@ fun OnboardingScreen(
         Spacer(modifier = Modifier.height(HabitSpacing.xl))
 
         Button(
-            onClick = { viewModel.completeOnboarding(onComplete) },
+            onClick = {
+                if (needsNotificationPermission(context)) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    viewModel.completeOnboarding(onComplete)
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -132,6 +153,14 @@ fun OnboardingScreen(
             )
         }
     }
+}
+
+private fun needsNotificationPermission(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.POST_NOTIFICATIONS,
+    ) != PackageManager.PERMISSION_GRANTED
 }
 
 @Composable
