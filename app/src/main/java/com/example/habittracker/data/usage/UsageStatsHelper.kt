@@ -13,7 +13,7 @@ import javax.inject.Singleton
 
 @Singleton
 class UsageStatsHelper @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
 
     companion object {
@@ -50,10 +50,12 @@ class UsageStatsHelper @Inject constructor(
     }
 
     fun getRecentEvents(
-        packageList: List<String>,
+        packageList: Collection<String>,
         intervalMs: Long,
     ): List<UsageEventWrapper> {
         if (!hasUsageAccess()) return emptyList()
+        if (packageList.isEmpty()) return emptyList()
+        val packageSet = packageList.toSet()
 
         val usageStatsManager =
             context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -67,7 +69,7 @@ class UsageStatsHelper @Inject constructor(
 
         while (usageEvents.hasNextEvent()) {
             usageEvents.getNextEvent(event)
-            if (event.packageName !in packageList) continue
+            if (event.packageName !in packageSet) continue
             if (event.eventType != UsageEvents.Event.MOVE_TO_FOREGROUND &&
                 event.eventType != UsageEvents.Event.MOVE_TO_BACKGROUND
             ) continue
