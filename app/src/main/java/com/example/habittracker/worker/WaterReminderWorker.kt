@@ -5,7 +5,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.WorkerParameters
 import com.example.habittracker.data.local.UserPreferenceManager
-import com.example.habittracker.util.MessageToneSelector
+import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
 import com.example.habittracker.util.NotificationHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -16,17 +16,15 @@ class WaterReminderWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     userPreferenceManager: UserPreferenceManager,
     private val notificationHelper: NotificationHelper,
-    private val messageToneSelector: MessageToneSelector,
+    private val checkWaterInterventionNeededUseCase: CheckWaterInterventionNeededUseCase,
 ) : BaseReminderWorker(context, params, userPreferenceManager) {
 
     override suspend fun doRemind(): Result {
         return try {
-            val message = messageToneSelector.selectByPreference(
-                "water",
-                getPreferredTone(),
-                getFatigueScore(),
-            )
-            notificationHelper.sendWaterReminder(message)
+            val status = checkWaterInterventionNeededUseCase()
+            if (!status.isNeedWater) return Result.success()
+
+            notificationHelper.sendWaterReminder(status.message)
             Result.success()
         } catch (e: Exception) {
             Result.retry()
