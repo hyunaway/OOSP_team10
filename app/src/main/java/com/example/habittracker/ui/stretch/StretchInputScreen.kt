@@ -49,6 +49,8 @@ import com.example.habittracker.ui.theme.HabitTextSecondary
 import com.example.habittracker.ui.theme.StretchBackground
 import com.example.habittracker.ui.theme.StretchContainer
 import com.example.habittracker.ui.theme.StretchPrimary
+import androidx.compose.ui.platform.LocalContext
+import com.example.habittracker.widget.WidgetUpdateHelper
 
 @Composable
 fun StretchInputScreen(
@@ -59,6 +61,7 @@ fun StretchInputScreen(
     val avatarVm: SharedAvatarViewModel = hiltViewModel()
     val avatarUiState by avatarVm.uiState.collectAsStateWithLifecycle()
     val status = uiState.todayStatus
+    val context = LocalContext.current
 
     val speech = when {
         (status?.totalCount ?: 0) == 0 -> "어깨가 굳어 있어요.\n잠깐 풀어볼까요? 🧘"
@@ -76,7 +79,11 @@ fun StretchInputScreen(
     ) {
         StretchStatusCard(status = status)
         StretchBodyPartCard(
-            onBodyPart = { viewModel.onStretchButtonClick(it) },
+            onBodyPart = {
+                viewModel.onStretchButtonClick(it)
+                // TODO: 스트레칭 부족 판정 로직 병합 후 StretchStatus.LACK 연결
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
+            },
             onBack = { navController.popBackStack() },
         )
         uiState.errorMessage?.let { msg ->

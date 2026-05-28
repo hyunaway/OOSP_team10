@@ -24,10 +24,23 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray,
     ) {
         CoroutineScope(Dispatchers.IO).launch {
-            val state = WidgetUpdateHelper.loadWidgetState(context)
-            appWidgetIds.forEach { id ->
-                WidgetUpdateHelper.updateWidget(context, appWidgetManager, id, state)
+            try {
+                val state = WidgetUpdateHelper.buildWidgetState(context)
+                appWidgetIds.forEach { id ->
+                    WidgetUpdateHelper.updateWidget(context, appWidgetManager, id, state)
+                }
+            } catch (_: Exception) {
+                // 업데이트 실패 시 기존 위젯 내용 유지
             }
+        }
+    }
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                WidgetUpdateHelper.updateAllWidgets(context)
+            } catch (_: Exception) {}
         }
     }
 
@@ -36,32 +49,56 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
         when (intent.action) {
             ACTION_ADD_WATER_250 -> {
                 CoroutineScope(Dispatchers.IO).launch {
-                    AppDatabase.getInstance(context).waterDao().insert(
-                        WaterLogEntity(
-                            timestamp = System.currentTimeMillis(),
-                            amountMl = 250,
-                            source = "widget",
+                    try {
+                        AppDatabase.getInstance(context).waterDao().insert(
+                            WaterLogEntity(
+                                timestamp = System.currentTimeMillis(),
+                                amountMl = 250,
+                                source = "widget",
+                            )
                         )
-                    )
-                    WidgetUpdateHelper.updateAllWidgets(context)
+                        WidgetUpdateHelper.updateAllWidgets(context)
+                    } catch (_: Exception) {}
                 }
             }
             ACTION_OPEN_STRETCH -> {
-                val deepLink = Intent(Intent.ACTION_VIEW, Uri.parse("app://habittracker/stretch?trigger=widget")).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    setClass(context, MainActivity::class.java)
-                }
-                context.startActivity(deepLink)
+                launchDeepLink(context, Uri.parse("app://habittracker/stretch?trigger=widget"))
             }
             ACTION_OPEN_APP -> {
-                val open = Intent(context, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(open)
+                context.startActivity(
+                    Intent(context, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
             }
             ACTION_REFRESH_WIDGET -> {
                 CoroutineScope(Dispatchers.IO).launch {
-                    WidgetUpdateHelper.updateAllWidgets(context)
+                    try {
+                        WidgetUpdateHelper.updateAllWidgets(context)
+                    } catch (_: Exception) {}
+                }
+            }
+            ACTION_GO_TO_DOMINANT -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val state = WidgetUpdateHelper.buildWidgetState(context)
+                        val uri = deepLinkUri(state.dominantCategory)
+                        if (uri != null) {
+                            launchDeepLink(context, uri)
+                        } else {
+                            context.startActivity(
+                                Intent(context, MainActivity::class.java).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            )
+                        }
+                    } catch (_: Exception) {
+                        context.startActivity(
+                            Intent(context, MainActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -72,8 +109,20 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
         const val ACTION_OPEN_STRETCH = "com.example.habittracker.widget.ACTION_OPEN_STRETCH"
         const val ACTION_OPEN_APP = "com.example.habittracker.widget.ACTION_OPEN_APP"
         const val ACTION_REFRESH_WIDGET = "com.example.habittracker.widget.ACTION_REFRESH_WIDGET"
+        const val ACTION_GO_TO_DOMINANT = "com.example.habittracker.widget.ACTION_GO_TO_DOMINANT"
 
         fun attachPendingIntents(context: Context, views: RemoteViews) {
+            // 기록하러 가기 → 대표 상태 화면으로 이동
+            views.setOnClickPendingIntent(
+                R.id.widget_action_button,
+                broadcastPendingIntent(context, ACTION_GO_TO_DOMINANT, 2005),
+            )
+            // 아바타 클릭 → 위젯 새로고침
+            views.setOnClickPendingIntent(
+                R.id.widget_avatar_image,
+                broadcastPendingIntent(context, ACTION_REFRESH_WIDGET, 2006),
+            )
+            // 레거시 hidden 뷰용 — 기존 브로드캐스트 유지
             views.setOnClickPendingIntent(
                 R.id.addWaterButton,
                 broadcastPendingIntent(context, ACTION_ADD_WATER_250, 2001),
@@ -89,6 +138,23 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(
                 R.id.avatarText,
                 broadcastPendingIntent(context, ACTION_REFRESH_WIDGET, 2004),
+            )
+        }
+
+        private fun deepLinkUri(category: WidgetHabitCategory): Uri? = when (category) {
+            WidgetHabitCategory.MEAL -> Uri.parse("app://habittracker/meal?source=widget")
+            WidgetHabitCategory.WATER -> Uri.parse("app://habittracker/water?source=widget")
+            WidgetHabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?source=widget")
+            WidgetHabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?source=widget")
+            WidgetHabitCategory.GOOD -> null
+        }
+
+        private fun launchDeepLink(context: Context, uri: Uri) {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, uri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    setClass(context, MainActivity::class.java)
+                }
             )
         }
 
