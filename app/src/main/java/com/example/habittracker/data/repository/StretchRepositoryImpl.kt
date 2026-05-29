@@ -2,7 +2,7 @@
 package com.example.habittracker.data.repository
 
 import android.content.Context
-import com.example.habittracker.data.entity.StretchLogEntity
+import com.example.habittracker.data.entity.StretchingRecord
 import com.example.habittracker.data.local.room.dao.StretchDao
 import com.example.habittracker.data.model.BodyPartType
 import com.example.habittracker.domain.model.DailyStretchSummary
@@ -24,43 +24,49 @@ import javax.inject.Singleton
 @Singleton
 class StretchRepositoryImpl @Inject constructor(
     private val stretchDao: StretchDao,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) : StretchRepository {
 
-    override fun getTodayStatus(): Flow<StretchTodayStatus> =
-        stretchDao.getTodayLogs().map { logs ->
-            val totalSeconds = logs.sumOf { it.durationSeconds }
+    override fun getTodayStatus(): Flow<StretchTodayStatus> {
+        val todayStr = LocalDate.now().toString()
+        return stretchDao.getTodayRecords(todayStr).map { records ->
+            val totalCount = records.size
+            val lastRecord = records.maxByOrNull { it.createdAt }
+            val lastTimestamp = lastRecord?.let {
+                try {
+                    java.time.LocalDateTime.parse(it.createdAt, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                        .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            
+            val bodyPartsList = records.flatMap { parseJsonBodyParts(it.bodyParts) }
+            val bodyPartMap = bodyPartsList.groupBy { it }.mapValues { it.value.size }
+            val totalSeconds = totalCount * 300 // 300 seconds (5 minutes) per stretch
+            
             StretchTodayStatus(
-                totalCount = logs.size,
-                lastStretchAt = logs.firstOrNull()?.timestamp,
-                bodyPartMap = logs.groupBy { it.bodyPart.name }.mapValues { (_, list) -> list.size },
+                totalCount = totalCount,
+                lastStretchAt = lastTimestamp,
+                bodyPartMap = bodyPartMap,
                 totalSeconds = totalSeconds,
-                avatarHealthScore = minOf(1.0f, totalSeconds / FULL_SCORE_SECONDS),
+                avatarHealthScore = minOf(1.0f, totalCount / 4f), // 4 is DAILY_STRETCH_GOAL
+                slotsLogged = records.map { it.timeSlot }.filter { it.isNotEmpty() }.distinct(),
             )
         }
+    }
 
-    override suspend fun addLog(
-        bodyPart: BodyPartType,
-        durationSeconds: Int,
-        source: String,
-        timestamp: Long,
-    ) {
-        stretchDao.insert(
-            StretchLogEntity(
-                timestamp = timestamp,
-                bodyPart = bodyPart,
-                durationSeconds = durationSeconds,
-            )
-        )
+    override suspend fun deleteLogBySlot(mealDate: String, stretchSlot: String): Int {
+        val timeSlot = when (stretchSlot) {
+            "AM" -> "아침"
+            "PM" -> "점심"
+            "EVE" -> "저녁"
+            "NIGHT" -> "기타"
+            else -> if (stretchSlot.isNotEmpty()) stretchSlot else "기타"
+        }
+        val deletedRows = stretchDao.deleteBySlot(mealDate, timeSlot)
         WidgetUpdateHelper.updateAllWidgets(context)
-    }
-
-    override suspend fun updateLog(id: Long, bodyPart: BodyPartType) {
-        stretchDao.updateBodyPartById(id, bodyPart.name)
-    }
-
-    override suspend fun deleteLog(id: Long) {
-        stretchDao.deleteById(id)
+        return deletedRows
     }
 
     override fun getLogsBetween(
@@ -68,22 +74,30 @@ class StretchRepositoryImpl @Inject constructor(
         endDate: String,
         bodyPart: BodyPartType?,
     ): Flow<List<DailyStretchSummary>> {
-        val start = dateToStartTimestamp(startDate)
-        val end = dateToEndTimestamp(endDate)
-        val logsFlow = if (bodyPart != null) {
-            stretchDao.getLogsBetweenByBodyPart(start, end, bodyPart.name)
-        } else {
-            stretchDao.getLogsBetween(start, end)
-        }
-        return logsFlow.map { logs ->
-            logs.groupBy { dateOfTimestamp(it.timestamp) }
-                .map { (date, dayLogs) ->
-                    val bodyPartCounts = dayLogs.groupBy { it.bodyPart.name }.mapValues { (_, list) -> list.size }
+        return stretchDao.getRecordsBetween(startDate, endDate).map { records ->
+            val filteredRecords = if (bodyPart != null) {
+                val targetKorean = bodyPartToKorean(bodyPart)
+                records.filter { parseJsonBodyParts(it.bodyParts).contains(targetKorean) }
+            } else {
+                records
+            }
+            
+            filteredRecords.groupBy { it.date }
+                .map { (date, dayRecords) ->
+                    val bodyPartsList = dayRecords.flatMap { parseJsonBodyParts(it.bodyParts) }
+                    val bodyPartCounts = bodyPartsList.groupBy { it }.mapValues { it.value.size }
+                    val dominantKorean = bodyPartCounts.maxByOrNull { it.value }?.key
+                    val dominantBodyPartStr = dominantKorean?.let { koreanToBodyPart(it).name }
+                    
                     DailyStretchSummary(
-                        date = dateToStartTimestamp(date),
-                        count = dayLogs.size,
-                        dominantBodyPart = bodyPartCounts.maxByOrNull { it.value }?.key,
-                        totalSeconds = dayLogs.sumOf { it.durationSeconds },
+                        date = try {
+                            LocalDate.parse(date).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        } catch (_: Exception) {
+                            0L
+                        },
+                        count = dayRecords.size,
+                        dominantBodyPart = dominantBodyPartStr,
+                        totalSeconds = dayRecords.size * 300,
                     )
                 }
                 .sortedByDescending { it.date }
@@ -91,46 +105,108 @@ class StretchRepositoryImpl @Inject constructor(
     }
 
     override fun getPatternAnalysis(): Flow<StretchPatternResult> {
-        val thirtyDaysAgo = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-        val now = System.currentTimeMillis()
-        return combine(
-            stretchDao.getHourlyDistribution(thirtyDaysAgo, now),
-            stretchDao.getBodyPartDistribution(thirtyDaysAgo, now),
-            stretchDao.getLogsBetween(thirtyDaysAgo, now),
-        ) { hourly, bodyParts, logs ->
+        val thirtyDaysAgoStr = LocalDate.now().minusDays(30).toString()
+        val todayStr = LocalDate.now().toString()
+        
+        return stretchDao.getRecordsBetween(thirtyDaysAgoStr, todayStr).map { records ->
+            val hourlyDistribution = mutableMapOf<Int, Int>()
+            val bodyPartDistribution = mutableMapOf<String, Int>()
             val weekdayPattern = mutableMapOf<Int, Int>()
             val weekendPattern = mutableMapOf<Int, Int>()
+            
             val cal = Calendar.getInstance()
-            logs.forEach { log ->
-                cal.timeInMillis = log.timestamp
-                // DAY_OF_WEEK: 1=Sun,2=Mon,...,7=Sat → convert to 0=Sun,...,6=Sat
-                val dow = cal.get(Calendar.DAY_OF_WEEK) - 1
-                if (dow == 0 || dow == 6) {
-                    weekendPattern[dow] = (weekendPattern[dow] ?: 0) + 1
-                } else {
-                    weekdayPattern[dow] = (weekdayPattern[dow] ?: 0) + 1
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+            
+            records.forEach { record ->
+                try {
+                    val localDateTime = java.time.LocalDateTime.parse(record.createdAt, formatter)
+                    val hour = localDateTime.hour
+                    hourlyDistribution[hour] = (hourlyDistribution[hour] ?: 0) + 1
+                    
+                    val timestamp = localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    cal.timeInMillis = timestamp
+                    val dow = cal.get(Calendar.DAY_OF_WEEK) - 1 // 0=Sun, ..., 6=Sat
+                    if (dow == 0 || dow == 6) {
+                        weekendPattern[dow] = (weekendPattern[dow] ?: 0) + 1
+                    } else {
+                        weekdayPattern[dow] = (weekdayPattern[dow] ?: 0) + 1
+                    }
+                } catch (_: Exception) {}
+                
+                parseJsonBodyParts(record.bodyParts).forEach { part ->
+                    bodyPartDistribution[part] = (bodyPartDistribution[part] ?: 0) + 1
                 }
             }
+            
+            val preferredKorean = bodyPartDistribution.maxByOrNull { it.value }?.key
+            val preferredBodyPartStr = preferredKorean?.let { koreanToBodyPart(it).name }
+            
             StretchPatternResult(
-                inactiveHours = (0..23).filter { hour -> hourly.none { it.hour == hour } },
+                inactiveHours = (0..23).filter { hour -> !hourlyDistribution.containsKey(hour) },
                 digitalTriggerConversionRate = 0f,
-                preferredBodyPart = bodyParts.maxByOrNull { it.count }?.bodyPart,
+                preferredBodyPart = preferredBodyPartStr,
                 weekdayStretchPattern = weekdayPattern,
                 weekendStretchPattern = weekendPattern,
             )
         }
     }
 
-    private fun dateToStartTimestamp(date: String): Long =
-        LocalDate.parse(date).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    // 7대 DB 함수 구현
+    override suspend fun getTodayStretchCount(date: String): Int {
+        return stretchDao.getTodayStretchCount(date)
+    }
 
-    private fun dateToEndTimestamp(date: String): Long =
-        LocalDate.parse(date).plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() - 1
+    override suspend fun getRecordByTimeSlot(date: String, timeSlot: String): StretchingRecord? {
+        return stretchDao.getRecordByTimeSlot(date, timeSlot)
+    }
 
-    private fun dateOfTimestamp(timestamp: Long): String =
-        Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+    override suspend fun insertStretchRecord(date: String, timeSlot: String, bodyParts: String) {
+        stretchDao.insertStretchRecord(date, timeSlot, bodyParts)
+    }
 
-    companion object {
-        private const val FULL_SCORE_SECONDS = 300f
+    override suspend fun updateStretchRecord(id: Int, bodyParts: String) {
+        stretchDao.updateStretchRecord(id, bodyParts)
+    }
+
+    override suspend fun deleteStretchRecord(id: Int) {
+        stretchDao.deleteStretchRecord(id)
+    }
+
+    override suspend fun isGoalAchieved(date: String): Boolean {
+        return stretchDao.isGoalAchieved(date)
+    }
+
+    override suspend fun calculateStreak(today: String): Int {
+        return stretchDao.calculateStreak(today)
+    }
+
+    // Helper functions
+    private fun bodyPartToKorean(bodyPart: BodyPartType): String =
+        when (bodyPart) {
+            BodyPartType.NECK -> "목"
+            BodyPartType.SHOULDER -> "어깨"
+            BodyPartType.BACK -> "허리"
+            BodyPartType.FULL -> "전신"
+        }
+
+    private fun koreanToBodyPart(korean: String): BodyPartType =
+        when (korean) {
+            "목" -> BodyPartType.NECK
+            "어깨" -> BodyPartType.SHOULDER
+            "허리" -> BodyPartType.BACK
+            else -> BodyPartType.FULL
+        }
+
+    private fun parseJsonBodyParts(json: String): List<String> {
+        return json.replace("[", "")
+            .replace("]", "")
+            .replace("\"", "")
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+    }
+
+    private fun toJsonBodyParts(parts: List<String>): String {
+        return parts.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
     }
 }

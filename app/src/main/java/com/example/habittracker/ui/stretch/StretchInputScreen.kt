@@ -26,6 +26,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.AlertDialog
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,8 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.example.habittracker.data.model.BodyPartType
-import com.example.habittracker.domain.model.StretchTodayStatus
+import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.ui.avatar.SharedAvatarViewModel
 import com.example.habittracker.ui.components.CategoryScaffold
 import com.example.habittracker.ui.theme.HabitCardWhite
@@ -47,7 +49,6 @@ import com.example.habittracker.ui.theme.HabitSpacing
 import com.example.habittracker.ui.theme.HabitTextPrimary
 import com.example.habittracker.ui.theme.HabitTextSecondary
 import com.example.habittracker.ui.theme.StretchBackground
-import com.example.habittracker.ui.theme.StretchContainer
 import com.example.habittracker.ui.theme.StretchPrimary
 
 @Composable
@@ -59,6 +60,58 @@ fun StretchInputScreen(
     val avatarVm: SharedAvatarViewModel = hiltViewModel()
     val avatarUiState by avatarVm.uiState.collectAsStateWithLifecycle()
     val status = uiState.todayStatus
+
+    // 토스트 및 팝업 상태 관찰
+    val toastMsg by viewModel.toastMessage.collectAsStateWithLifecycle()
+    val cancelConfirmRecord by viewModel.showCancelConfirmPopup.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    if (toastMsg != null) {
+        android.widget.Toast.makeText(context, toastMsg, android.widget.Toast.LENGTH_SHORT).show()
+        viewModel.clearToastMessage()
+    }
+
+    // 자정 날짜 변경 감지 시 자동 갱신 리시버 등록 (수정 4 요건)
+    androidx.compose.runtime.DisposableEffect(context) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+                if (intent?.action == android.content.Intent.ACTION_DATE_CHANGED) {
+                    viewModel.refreshData()
+                }
+            }
+        }
+        val filter = android.content.IntentFilter(android.content.Intent.ACTION_DATE_CHANGED)
+        context.registerReceiver(receiver, filter)
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
+
+    // 단일 기록 취소 다이얼로그 (수정 1 요건)
+    if (cancelConfirmRecord != null) {
+        val record = cancelConfirmRecord!!
+        AlertDialog(
+            onDismissRequest = { viewModel.setShowCancelConfirmPopup(null) },
+            title = { Text("기록 취소", fontWeight = FontWeight.Bold) },
+            text = { Text("이 기록을 취소하시겠습니까?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteStretchRecordBySlot(record.timeSlot)
+                        viewModel.setShowCancelConfirmPopup(null)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StretchPrimary)
+                ) {
+                    Text("예")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { viewModel.setShowCancelConfirmPopup(null) }) {
+                    Text("아니오")
+                }
+            }
+        )
+    }
 
     val speech = when {
         (status?.totalCount ?: 0) == 0 -> "어깨가 굳어 있어요.\n잠깐 풀어볼까요? 🧘"
@@ -74,19 +127,87 @@ fun StretchInputScreen(
         onSettingsClick = { navController.navigate("settings") },
         onReportsClick = { navController.navigate("reports") },
     ) {
-        StretchStatusCard(status = status)
-        StretchBodyPartCard(
-            onBodyPart = { viewModel.onStretchButtonClick(it) },
-            onBack = { navController.popBackStack() },
+        // 수정 8: 진행률 위젯 (퍼센트% 라벨 포함)
+        StretchProgressWidget(
+            todayCount = uiState.todayCount,
+            isHalfGoalAchieved = uiState.isHalfGoalAchieved
         )
+        
+        StretchStatusCard(uiState = uiState)
+        
+        StretchSlotsCard(
+            uiState = uiState,
+            viewModel = viewModel,
+            userPreferenceManager = viewModel.userPreferenceManager
+        )
+        
+        // 부위 선택 그리드를 지우고 "나중에" 버튼만 하단에 배치
+        Spacer(modifier = Modifier.height(HabitSpacing.sm))
+        OutlinedButton(
+            onClick = { navController.popBackStack() },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(HabitRadius.button),
+        ) {
+            Text("나중에", color = HabitTextSecondary)
+        }
+
         uiState.errorMessage?.let { msg ->
             Text(text = msg, color = MaterialTheme.colorScheme.error)
         }
     }
 }
 
+// 수정 8 & 수정 3 요건: 진행률 퍼센트(%) 위젯 구현
 @Composable
-private fun StretchStatusCard(status: StretchTodayStatus?) {
+private fun StretchProgressWidget(todayCount: Int, isHalfGoalAchieved: Boolean) {
+    val progressTarget = (todayCount * 0.25f).coerceIn(0f, 1f)
+    val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = progressTarget,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 500),
+        label = "stretchProgressAnimation"
+    )
+    val percentage = (progressTarget * 100).toInt()
+    val isGoalAchieved = todayCount >= 4
+    
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(bottom = HabitSpacing.sm),
+        shape = RoundedCornerShape(HabitRadius.card),
+        colors = CardDefaults.cardColors(containerColor = HabitCardWhite),
+        elevation = CardDefaults.cardElevation(defaultElevation = HabitElevation.card),
+    ) {
+        Column(modifier = Modifier.padding(HabitSpacing.base)) {
+            if (isHalfGoalAchieved) {
+                Text(
+                    text = "오늘 스트레칭 목표를 달성하셨어요! ✨",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = StretchPrimary,
+                    modifier = Modifier.padding(bottom = HabitSpacing.xs)
+                )
+            }
+            Text(
+                text = if (isGoalAchieved) "오늘 목표 달성! 🎉 ($percentage%)" else "오늘 스트레칭 $todayCount / 4회 ($percentage%)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isGoalAchieved) StretchPrimary else HabitTextPrimary
+            )
+            Spacer(modifier = Modifier.height(HabitSpacing.xs))
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier.fillMaxWidth().height(8.dp),
+                color = if (isGoalAchieved) StretchPrimary else StretchPrimary.copy(alpha = 0.6f),
+                trackColor = StretchBackground,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StretchStatusCard(uiState: StretchUiState) {
+    val status = uiState.todayStatus
+    val streak = uiState.streak
+    val todayCount = uiState.todayCount
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(HabitRadius.card),
@@ -143,7 +264,7 @@ private fun StretchStatusCard(status: StretchTodayStatus?) {
                             color = HabitTextSecondary,
                         )
                         Text(
-                            text = "오늘 ${status.totalCount}회 완료",
+                            text = "오늘 ${todayCount}회 완료",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = StretchPrimary,
@@ -154,7 +275,7 @@ private fun StretchStatusCard(status: StretchTodayStatus?) {
                         color = StretchBackground,
                     ) {
                         Text(
-                            text = "연속 ${status.totalCount}일째",
+                            text = "연속 ${streak}일째",
                             modifier = Modifier.padding(
                                 horizontal = HabitSpacing.sm,
                                 vertical = HabitSpacing.xxs,
@@ -165,8 +286,13 @@ private fun StretchStatusCard(status: StretchTodayStatus?) {
                     }
                 }
                 Spacer(modifier = Modifier.height(HabitSpacing.sm))
+                val animatedHealthScore by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = status.avatarHealthScore.coerceIn(0f, 1f),
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 500),
+                    label = "stretchHealthScoreAnimation"
+                )
                 LinearProgressIndicator(
-                    progress = { status.avatarHealthScore.coerceIn(0f, 1f) },
+                    progress = { animatedHealthScore },
                     modifier = Modifier.fillMaxWidth(),
                     color = StretchPrimary,
                     trackColor = StretchBackground,
@@ -185,73 +311,134 @@ private fun StretchStatusCard(status: StretchTodayStatus?) {
 }
 
 @Composable
-private fun StretchBodyPartCard(
-    onBodyPart: (BodyPartType) -> Unit,
-    onBack: () -> Unit,
+private fun StretchSlotsCard(
+    uiState: StretchUiState,
+    viewModel: StretchViewModel,
+    userPreferenceManager: UserPreferenceManager,
 ) {
+    val amEnabled by userPreferenceManager.stretchSlotAmEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    val pmEnabled by userPreferenceManager.stretchSlotPmEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    val eveEnabled by userPreferenceManager.stretchSlotEveEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    val nightEnabled by userPreferenceManager.stretchSlotNightEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+
+    val scope = rememberCoroutineScope()
+
+    val slots = listOf(
+        Triple("오전 (10:30)", "아침", amEnabled),
+        Triple("점심 후 (14:00)", "점심", pmEnabled),
+        Triple("저녁 (19:30)", "저녁", eveEnabled),
+        Triple("취침 전 (22:00)", "기타", nightEnabled)
+    )
+
+    val activeSlotsCount = slots.count { it.third }
+    val completedCount = uiState.todayCount
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(HabitRadius.card),
         colors = CardDefaults.cardColors(containerColor = HabitCardWhite),
         elevation = CardDefaults.cardElevation(defaultElevation = HabitElevation.card),
     ) {
-        Column(
-            modifier = Modifier.padding(HabitSpacing.lg),
-            verticalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
-        ) {
-            Text(
-                text = "어느 부위를 스트레칭할까요?",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = HabitTextPrimary,
-            )
+        Column(modifier = Modifier.padding(HabitSpacing.lg)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                BodyPartButton("목", Modifier.weight(1f)) { onBodyPart(BodyPartType.NECK) }
-                BodyPartButton("어깨", Modifier.weight(1f)) { onBodyPart(BodyPartType.SHOULDER) }
+                Text(
+                    text = "시간대별 스트레칭 슬롯",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = HabitTextPrimary,
+                )
+                Text(
+                    text = "달성도: $completedCount/$activeSlotsCount",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = StretchPrimary,
+                )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
-            ) {
-                BodyPartButton("허리", Modifier.weight(1f)) { onBodyPart(BodyPartType.BACK) }
-                BodyPartButton("전신", Modifier.weight(1f)) { onBodyPart(BodyPartType.FULL) }
-            }
-            Spacer(modifier = Modifier.height(HabitSpacing.xs))
-            Button(
-                onClick = { onBodyPart(BodyPartType.FULL) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(HabitRadius.button),
-                colors = ButtonDefaults.buttonColors(containerColor = StretchPrimary),
-            ) {
-                Text("지금 바로 스트레칭", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(HabitRadius.button),
-            ) {
-                Text("나중에", color = HabitTextSecondary)
+            Spacer(modifier = Modifier.height(HabitSpacing.sm))
+
+            slots.forEach { (label, key, enabled) ->
+                val buttonState = uiState.buttonStates[key] ?: StretchButtonState.INPUTTABLE
+                val isCompleted = buttonState == StretchButtonState.DISABLED_COMPLETED
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = HabitTextPrimary)
+                            if (isCompleted) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(HabitRadius.full),
+                                    color = StretchBackground,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "완료 🧘",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = StretchPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Text(
+                            text = if (enabled) "🔔 알림 활성화" else "🔕 알림 비활성화",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (enabled) StretchPrimary else HabitTextSecondary
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    when (key) {
+                                        "아침" -> userPreferenceManager.updateStretchSlotAmEnabled(!enabled)
+                                        "점심" -> userPreferenceManager.updateStretchSlotPmEnabled(!enabled)
+                                        "저녁" -> userPreferenceManager.updateStretchSlotEveEnabled(!enabled)
+                                        "기타" -> userPreferenceManager.updateStretchSlotNightEnabled(!enabled)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.padding(end = 8.dp),
+                            border = BorderStroke(1.dp, if (enabled) StretchPrimary else HabitLineGray),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (enabled) StretchPrimary else HabitTextSecondary)
+                        ) {
+                            Text(if (enabled) "알림 끄기" else "알림 켜기", style = MaterialTheme.typography.labelSmall)
+                        }
+
+                        val isRecorded = (buttonState == StretchButtonState.DISABLED_COMPLETED) || (buttonState == StretchButtonState.EDITABLE)
+                        val btnEnabled = isRecorded || (uiState.todayCount < 4)
+                        val btnText = if (isRecorded) "완료" else "기록"
+
+                        Button(
+                            onClick = { viewModel.handleTimeSlotTap(key) },
+                            enabled = btnEnabled,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isRecorded) StretchPrimary else StretchBackground,
+                                disabledContainerColor = StretchBackground
+                            )
+                        ) {
+                            Text(
+                                text = btnText,
+                                color = if (isRecorded) Color.White else StretchPrimary,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun BodyPartButton(
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(HabitRadius.button),
-        border = BorderStroke(1.dp, StretchPrimary),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = StretchPrimary),
-    ) {
-        Text(label, fontWeight = FontWeight.Medium)
     }
 }
