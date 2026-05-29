@@ -22,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 object WidgetUpdateHelper {
 
@@ -39,7 +40,9 @@ object WidgetUpdateHelper {
         val waterStatus = ep.checkWaterInterventionNeededUseCase()()
         val digitalStatus = ep.getTodayDigitalStatusUseCase()().first()
         val genderString = ep.userPreferenceManager().avatarGenderFlow.first()
-        val stretchCount = AppDatabase.getInstance(appContext).stretchDao().getTodayLogs().first().size
+        val stretchCount = AppDatabase.getInstance(appContext)
+            .stretchDao()
+            .getTodayStretchCount(LocalDate.now().toString())
 
         val displayWaterLevel = if (waterStatus.isNeedWater) {
             waterStatus.shortageLevel

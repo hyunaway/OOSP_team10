@@ -67,7 +67,6 @@ fun StretchInputScreen(
     // 토스트 및 팝업 상태 관찰
     val toastMsg by viewModel.toastMessage.collectAsStateWithLifecycle()
     val cancelConfirmRecord by viewModel.showCancelConfirmPopup.collectAsStateWithLifecycle()
-    val context = androidx.compose.ui.platform.LocalContext.current
 
     if (toastMsg != null) {
         android.widget.Toast.makeText(context, toastMsg, android.widget.Toast.LENGTH_SHORT).show()
