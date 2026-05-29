@@ -56,6 +56,8 @@ import com.example.habittracker.ui.theme.HabitTextSecondary
 import com.example.habittracker.ui.theme.MealBackground
 import com.example.habittracker.ui.theme.MealPrimary
 import com.example.habittracker.ui.theme.MealSurface
+import androidx.compose.ui.platform.LocalContext
+import com.example.habittracker.widget.WidgetUpdateHelper
 
 @Composable
 fun MealInputScreen(
@@ -66,6 +68,7 @@ fun MealInputScreen(
     val avatarVm: SharedAvatarViewModel = hiltViewModel()
     val avatarUiState by avatarVm.uiState.collectAsStateWithLifecycle()
     val status = uiState.todayStatus
+    val context = LocalContext.current
 
     // 취소 팝업 다이얼로그 타겟 로그 ID 관리
     var cancelLogId by remember { mutableStateOf<Long?>(null) }

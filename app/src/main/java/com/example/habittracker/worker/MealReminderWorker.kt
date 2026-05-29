@@ -9,6 +9,7 @@ import com.example.habittracker.data.local.room.dao.MealDao
 import com.example.habittracker.data.model.MealType
 import com.example.habittracker.util.MessageToneSelector
 import com.example.habittracker.util.NotificationHelper
+import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
@@ -128,6 +129,11 @@ class MealReminderWorker @AssistedInject constructor(
             Result.success()
         } catch (e: Exception) {
             Result.retry()
+        } finally {
+            // TODO: 식사 부족 판정 로직 병합 후 MealStatus.LACK 연결
+            try {
+                WidgetUpdateHelper.updateAllWidgets(applicationContext)
+            } catch (_: Exception) {}
         }
     }
 
