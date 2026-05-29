@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.widget.WidgetUpdateHelper
 import com.example.habittracker.worker.WorkScheduler
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +29,12 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 WorkScheduler.rescheduleAll(context.applicationContext, userPreferenceManager)
                 Log.d(TAG, "Workers rescheduled successfully")
+                try {
+                    WidgetUpdateHelper.updateAllWidgets(context.applicationContext)
+                    Log.d(TAG, "Widget updated on boot")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Widget update failed on boot", e)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to reschedule workers on boot", e)
             } finally {

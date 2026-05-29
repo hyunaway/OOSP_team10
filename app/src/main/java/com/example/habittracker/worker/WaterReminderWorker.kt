@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
 import com.example.habittracker.util.NotificationHelper
+import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -28,6 +29,10 @@ class WaterReminderWorker @AssistedInject constructor(
             Result.success()
         } catch (e: Exception) {
             Result.retry()
+        } finally {
+            try {
+                WidgetUpdateHelper.updateAllWidgets(applicationContext)
+            } catch (_: Exception) {}
         }
     }
 }

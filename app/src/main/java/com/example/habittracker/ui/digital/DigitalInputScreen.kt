@@ -47,6 +47,8 @@ import com.example.habittracker.ui.theme.HabitRadius
 import com.example.habittracker.ui.theme.HabitSpacing
 import com.example.habittracker.ui.theme.HabitTextPrimary
 import com.example.habittracker.ui.theme.HabitTextSecondary
+import androidx.compose.ui.platform.LocalContext
+import com.example.habittracker.widget.WidgetUpdateHelper
 
 @Composable
 fun DigitalInputScreen(
@@ -58,6 +60,7 @@ fun DigitalInputScreen(
     val avatarVm: SharedAvatarViewModel = hiltViewModel()
     val avatarUiState by avatarVm.uiState.collectAsStateWithLifecycle()
     val status = uiState.todayStatus
+    val context = LocalContext.current
 
     val totalMin = status?.totalUsageMinutes ?: 0
     val speech = when {
@@ -83,14 +86,17 @@ fun DigitalInputScreen(
             interventionId = interventionId,
             onBreak = {
                 if (interventionId >= 0) viewModel.onInterventionAction(interventionId, "break")
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
                 navController.popBackStack()
             },
             onStretch = {
                 if (interventionId >= 0) viewModel.onInterventionAction(interventionId, "stretch")
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
                 navController.navigate("stretch")
             },
             onContinue = {
                 if (interventionId >= 0) viewModel.onInterventionAction(interventionId, "continue")
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
                 navController.popBackStack()
             },
         )

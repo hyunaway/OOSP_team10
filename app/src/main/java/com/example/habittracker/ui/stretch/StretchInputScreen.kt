@@ -50,6 +50,8 @@ import com.example.habittracker.ui.theme.HabitTextPrimary
 import com.example.habittracker.ui.theme.HabitTextSecondary
 import com.example.habittracker.ui.theme.StretchBackground
 import com.example.habittracker.ui.theme.StretchPrimary
+import androidx.compose.ui.platform.LocalContext
+import com.example.habittracker.widget.WidgetUpdateHelper
 
 @Composable
 fun StretchInputScreen(
@@ -60,6 +62,7 @@ fun StretchInputScreen(
     val avatarVm: SharedAvatarViewModel = hiltViewModel()
     val avatarUiState by avatarVm.uiState.collectAsStateWithLifecycle()
     val status = uiState.todayStatus
+    val context = LocalContext.current
 
     // 토스트 및 팝업 상태 관찰
     val toastMsg by viewModel.toastMessage.collectAsStateWithLifecycle()
