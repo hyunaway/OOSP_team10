@@ -27,7 +27,8 @@ object WidgetUpdateHelper {
         ).checkWaterInterventionNeededUseCase()()
 
         val waterTotalMl = waterStatus.currentAmountMl
-        val stretchCount = db.stretchDao().getTodayLogs().first().size
+        val todayStr = java.time.LocalDate.now().toString()
+        val stretchCount = db.stretchDao().getTodayStretchCount(todayStr)
         val displayWaterLevel = if (waterStatus.isNeedWater) {
             waterStatus.shortageLevel
         } else {

@@ -38,6 +38,7 @@ class HabitTrackerApplication : Application(), Configuration.Provider {
             NotificationChannel(CHANNEL_MEAL, "Meal Reminder", NotificationManager.IMPORTANCE_DEFAULT),
             NotificationChannel(CHANNEL_DIGITAL, "Digital Habit", NotificationManager.IMPORTANCE_DEFAULT),
             NotificationChannel(CHANNEL_STRETCH, "Stretch Reminder", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(CHANNEL_STRETCH_URGENT, "Stretch Urgent", NotificationManager.IMPORTANCE_HIGH),
         )
 
         manager.createNotificationChannels(channels)
@@ -48,5 +49,6 @@ class HabitTrackerApplication : Application(), Configuration.Provider {
         const val CHANNEL_MEAL = "CHANNEL_MEAL"
         const val CHANNEL_DIGITAL = "CHANNEL_DIGITAL"
         const val CHANNEL_STRETCH = "CHANNEL_STRETCH"
+        const val CHANNEL_STRETCH_URGENT = "CHANNEL_STRETCH_URGENT"
     }
 }

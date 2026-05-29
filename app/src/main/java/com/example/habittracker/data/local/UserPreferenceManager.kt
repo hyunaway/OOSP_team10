@@ -80,6 +80,17 @@ class UserPreferenceManager @Inject constructor(
     val hasCompletedOnboardingFlow: Flow<Boolean> = dataStore.data.map {
         it[PreferenceKeys.HAS_ONBOARDING_COMPLETED] ?: false
     }
+    val lastMealReminderIdFlow: Flow<String> = dataStore.data.map {
+        it[PreferenceKeys.LAST_MEAL_REMINDER_ID] ?: ""
+    }
+    val registeredDeliveryPackagesFlow: Flow<Set<String>> = dataStore.data.map {
+        parsePackageSet(it[PreferenceKeys.REGISTERED_DELIVERY_PACKAGES] ?: DEFAULT_DELIVERY_PACKAGES)
+    }
+    val stretchSlotAmEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_AM_ENABLED] ?: true }
+    val stretchSlotPmEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_PM_ENABLED] ?: true }
+    val stretchSlotEveEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_EVE_ENABLED] ?: true }
+    val stretchSlotNightEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_NIGHT_ENABLED] ?: true }
+    val lastStretchReminderIdFlow: Flow<String> = dataStore.data.map { it[PreferenceKeys.LAST_STRETCH_REMINDER_ID] ?: "" }
 
     // ── Update functions ─────────────────────────────────────────────────────
 
@@ -177,6 +188,30 @@ class UserPreferenceManager @Inject constructor(
         dataStore.edit { it[PreferenceKeys.HAS_ONBOARDING_COMPLETED] = value }
     }
 
+    suspend fun updateLastMealReminderId(value: String) {
+        dataStore.edit { it[PreferenceKeys.LAST_MEAL_REMINDER_ID] = value }
+    }
+    suspend fun updateRegisteredDeliveryPackages(value: Set<String>) {
+        dataStore.edit {
+            it[PreferenceKeys.REGISTERED_DELIVERY_PACKAGES] = value.sorted().joinToString(",")
+        }
+    }
+    suspend fun updateStretchSlotAmEnabled(value: Boolean) {
+        dataStore.edit { it[PreferenceKeys.STRETCH_SLOT_AM_ENABLED] = value }
+    }
+    suspend fun updateStretchSlotPmEnabled(value: Boolean) {
+        dataStore.edit { it[PreferenceKeys.STRETCH_SLOT_PM_ENABLED] = value }
+    }
+    suspend fun updateStretchSlotEveEnabled(value: Boolean) {
+        dataStore.edit { it[PreferenceKeys.STRETCH_SLOT_EVE_ENABLED] = value }
+    }
+    suspend fun updateStretchSlotNightEnabled(value: Boolean) {
+        dataStore.edit { it[PreferenceKeys.STRETCH_SLOT_NIGHT_ENABLED] = value }
+    }
+    suspend fun updateLastStretchReminderId(value: String) {
+        dataStore.edit { it[PreferenceKeys.LAST_STRETCH_REMINDER_ID] = value }
+    }
+
     // ── Utility ──────────────────────────────────────────────────────────────
 
     fun getBedTimeAsMinutes(): Flow<Int> = bedTimeFlow.map { parseTimeToMinutes(it) }
@@ -214,5 +249,6 @@ class UserPreferenceManager @Inject constructor(
         const val DEFAULT_SLEEP_PREP_WINDOW_MINUTES = 60
         const val DEFAULT_AVATAR_GENDER = "MALE"
         const val DEFAULT_USER_NAME = ""
+        const val DEFAULT_DELIVERY_PACKAGES = "com.sample.baemin,com.sample.coupangeats"
     }
 }

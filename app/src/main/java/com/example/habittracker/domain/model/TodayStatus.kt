@@ -13,8 +13,8 @@ data class MealTodayStatus(
     val breakfastLogged: Boolean,
     val lunchLogged: Boolean,
     val dinnerLogged: Boolean,
-    val snackCount: Int,
     val lateNightCount: Int,
+    val lateNightLogged: Boolean = false,
     val lastMealAt: Long?,
 )
 
@@ -32,4 +32,5 @@ data class StretchTodayStatus(
     val bodyPartMap: Map<String, Int>,
     val totalSeconds: Int,
     val avatarHealthScore: Float,
+    val slotsLogged: List<String> = emptyList(),
 )
