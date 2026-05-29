@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -28,6 +29,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.example.habittracker.data.entity.MealLogEntity
 import com.example.habittracker.data.model.MealType
 import com.example.habittracker.domain.model.MealTodayStatus
 import com.example.habittracker.ui.avatar.SharedAvatarViewModel
@@ -62,6 +67,9 @@ fun MealInputScreen(
     val avatarUiState by avatarVm.uiState.collectAsStateWithLifecycle()
     val status = uiState.todayStatus
 
+    // 취소 팝업 다이얼로그 타겟 로그 ID 관리
+    var cancelLogId by remember { mutableStateOf<Long?>(null) }
+
     val completedCount = status?.let {
         listOf(it.breakfastLogged, it.lunchLogged, it.dinnerLogged).count { v -> v }
     } ?: 0
@@ -70,6 +78,83 @@ fun MealInputScreen(
         completedCount >= 3 -> "오늘 식사를 잘 챙겼어요!\n균형 잡힌 하루예요 🍽️"
         completedCount == 0 -> "아직 식사 기록이 없어요.\n가볍게라도 챙겨볼까요? 🍽️"
         else -> "식사를 ${completedCount}번 드셨군요.\n조금 더 챙겨봐요! 😊"
+    }
+
+    // 딥링크 개입 팝업 상태 관리 (배달앱 감지 유입 시)
+    val navBackStackEntry = navController.currentBackStackEntry
+    val deepLinkType = navBackStackEntry?.arguments?.getString("type")
+    val deepLinkSource = navBackStackEntry?.arguments?.getString("source")
+
+    var showInterventionDialog by remember(deepLinkType, deepLinkSource) {
+        mutableStateOf(deepLinkType == "LATE_NIGHT" && deepLinkSource == "delivery_app")
+    }
+
+    if (showInterventionDialog) {
+        AlertDialog(
+            onDismissRequest = { showInterventionDialog = false },
+            title = { Text("야식의 유혹 ⚠️", fontWeight = FontWeight.Bold) },
+            text = { Text("배달앱 실행이 감지되었습니다. 야식 대신 시원한 물 한 잔을 마시거나 가벼운 스트레칭으로 몸을 깨워보는 건 어떨까요?") },
+            confirmButton = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            showInterventionDialog = false
+                            navController.navigate("water?source=late_night_intervention")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MealPrimary)
+                    ) {
+                        Text("💧 물 마시러 가기")
+                    }
+                    Button(
+                        onClick = {
+                            showInterventionDialog = false
+                            navController.navigate("stretch?trigger=late_night_intervention")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MealPrimary)
+                    ) {
+                        Text("🧘 스트레칭 하러 가기")
+                    }
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showInterventionDialog = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("그냥 기록할래요")
+                }
+            }
+        )
+    }
+
+    // 취소 확인 팝업
+    if (cancelLogId != null) {
+        AlertDialog(
+            onDismissRequest = { cancelLogId = null },
+            title = { Text("식사 기록 취소") },
+            text = { Text("이 기록을 취소하시겠습니까?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        cancelLogId?.let { viewModel.onCancelMealClick(it) }
+                        cancelLogId = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MealPrimary)
+                ) {
+                    Text("예")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { cancelLogId = null }) {
+                    Text("아니오")
+                }
+            }
+        )
     }
 
     CategoryScaffold(
@@ -82,12 +167,27 @@ fun MealInputScreen(
     ) {
         MealStatusCard(status = status)
         MealQuickLogCard(
-            onMealClick = { viewModel.onMealButtonClick(it) },
-            onLateNight = { viewModel.onLateNightButtonClick(true) },
+            todayLogs = uiState.todayLogs,
+            onMealClick = { type ->
+                val log = uiState.todayLogs.firstOrNull { it.type == type }
+                if (log != null) {
+                    cancelLogId = log.id
+                } else {
+                    viewModel.onMealButtonClick(type)
+                }
+            },
+            onLateNight = {
+                val log = uiState.todayLogs.firstOrNull { it.type == MealType.LATE_NIGHT || it.isLateNight }
+                if (log != null) {
+                    cancelLogId = log.id
+                } else {
+                    viewModel.onLateNightClick("manual", "direct")
+                }
+            },
             onBack = { navController.popBackStack() },
         )
         uiState.errorMessage?.let { msg ->
-            Text(text = msg, color = MaterialTheme.colorScheme.error)
+            Text(text = msg, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
         }
     }
 }
@@ -136,6 +236,7 @@ private fun MealStatusCard(status: MealTodayStatus?) {
                 MealBadge(label = "아침", emoji = "🌅", checked = status?.breakfastLogged == true)
                 MealBadge(label = "점심", emoji = "☀️", checked = status?.lunchLogged == true)
                 MealBadge(label = "저녁", emoji = "🌙", checked = status?.dinnerLogged == true)
+                MealBadge(label = "야식", emoji = "🌙", checked = status?.lateNightLogged == true)
             }
         }
     }
@@ -174,10 +275,17 @@ private fun MealBadge(label: String, emoji: String, checked: Boolean) {
 
 @Composable
 private fun MealQuickLogCard(
+    todayLogs: List<MealLogEntity>,
     onMealClick: (MealType) -> Unit,
     onLateNight: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val breakfastLog = todayLogs.any { it.type == MealType.BREAKFAST }
+    val lunchLog = todayLogs.any { it.type == MealType.LUNCH }
+    val dinnerLog = todayLogs.any { it.type == MealType.DINNER }
+
+    val lateNightLog = todayLogs.any { it.type == MealType.LATE_NIGHT || it.isLateNight }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(HabitRadius.card),
@@ -198,29 +306,29 @@ private fun MealQuickLogCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
             ) {
-                MealTypeButton("아침", Modifier.weight(1f)) { onMealClick(MealType.BREAKFAST) }
-                MealTypeButton("점심", Modifier.weight(1f)) { onMealClick(MealType.LUNCH) }
-                MealTypeButton("저녁", Modifier.weight(1f)) { onMealClick(MealType.DINNER) }
+                MealTypeButton("아침", breakfastLog, Modifier.weight(1f)) { onMealClick(MealType.BREAKFAST) }
+                MealTypeButton("점심", lunchLog, Modifier.weight(1f)) { onMealClick(MealType.LUNCH) }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
             ) {
-                MealTypeButton("간식", Modifier.weight(1f)) { onMealClick(MealType.SNACK) }
-                MealTypeButton("나중에", Modifier.weight(1f), onClick = onBack)
+                MealTypeButton("저녁", dinnerLog, Modifier.weight(1f)) { onMealClick(MealType.DINNER) }
+                MealTypeButton("야식", lateNightLog, Modifier.weight(1f)) { onLateNight() }
             }
-            Spacer(modifier = Modifier.height(HabitSpacing.xs))
-            Button(
-                onClick = onLateNight,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(HabitRadius.button),
-                colors = ButtonDefaults.buttonColors(containerColor = MealSurface),
+                horizontalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
             ) {
-                Text(
-                    text = "🌙 야식 먹었어요",
-                    color = HabitTextPrimary,
-                    fontWeight = FontWeight.Bold,
-                )
+                OutlinedButton(
+                    onClick = onBack,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(HabitRadius.button),
+                    border = BorderStroke(1.dp, HabitLineGray),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = HabitTextSecondary),
+                ) {
+                    Text("나중에", fontWeight = FontWeight.Medium)
+                }
             }
         }
     }
@@ -229,16 +337,37 @@ private fun MealQuickLogCard(
 @Composable
 private fun MealTypeButton(
     label: String,
+    completed: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(HabitRadius.button),
-        border = BorderStroke(1.dp, MealPrimary),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = MealPrimary),
-    ) {
-        Text(label, fontWeight = FontWeight.Medium)
+    if (completed) {
+        Button(
+            onClick = onClick,
+            modifier = modifier,
+            shape = RoundedCornerShape(HabitRadius.button),
+            colors = ButtonDefaults.buttonColors(containerColor = MealPrimary),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = Color.White
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(label, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = modifier,
+            shape = RoundedCornerShape(HabitRadius.button),
+            border = BorderStroke(1.dp, MealPrimary),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MealPrimary),
+        ) {
+            Text(label, fontWeight = FontWeight.Medium)
+        }
     }
 }

@@ -4,6 +4,7 @@ package com.example.habittracker.ui.meal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.model.MealType
+import com.example.habittracker.domain.repository.MealRepository
 import com.example.habittracker.domain.usecase.meal.AddMealLogUseCase
 import com.example.habittracker.domain.usecase.meal.GetMealHistoryUseCase
 import com.example.habittracker.domain.usecase.meal.GetTodayMealStatusUseCase
@@ -21,6 +22,7 @@ class MealViewModel @Inject constructor(
     private val getTodayMealStatusUseCase: GetTodayMealStatusUseCase,
     private val addMealLogUseCase: AddMealLogUseCase,
     private val getMealHistoryUseCase: GetMealHistoryUseCase,
+    private val mealRepository: MealRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MealUiState())
@@ -32,6 +34,13 @@ class MealViewModel @Inject constructor(
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
                 .collect { status ->
                     _uiState.update { it.copy(loading = false, todayStatus = status) }
+                }
+        }
+        viewModelScope.launch {
+            mealRepository.getTodayLogs()
+                .catch { e -> _uiState.update { it.copy(errorMessage = e.message) } }
+                .collect { logs ->
+                    _uiState.update { it.copy(todayLogs = logs) }
                 }
         }
     }
@@ -48,6 +57,8 @@ class MealViewModel @Inject constructor(
                     viaDeliveryApp = false,
                     source = "manual",
                     timestamp = timestamp,
+                    mealDate = java.time.LocalDate.now().toString(),
+                    recordedTime = java.time.LocalTime.now().toString(),
                 )
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
@@ -55,19 +66,57 @@ class MealViewModel @Inject constructor(
         }
     }
 
-    fun onLateNightButtonClick(ate: Boolean) {
-        if (!ate) return
+    fun onCancelMealClick(id: Long) {
         viewModelScope.launch {
             try {
+                mealRepository.deleteLog(id)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
+    fun onLateNightClick(
+        inputMethod: String = "manual",
+        triggerType: String = "direct"
+    ) {
+        viewModelScope.launch {
+            try {
+                val now = System.currentTimeMillis()
+                val targetMealDate = resolveLateNightMealDate(now)
                 addMealLogUseCase(
-                    type = MealType.SNACK,
+                    type = MealType.LATE_NIGHT,
                     isLateNight = true,
-                    viaDeliveryApp = false,
+                    viaDeliveryApp = inputMethod == "delivery_app",
                     source = "manual",
+                    timestamp = now,
+                    mealDate = targetMealDate,
+                    recordedTime = java.time.LocalTime.now().toString(),
+                    inputMethod = inputMethod,
+                    triggerType = triggerType,
                 )
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
+        }
+    }
+
+    private fun resolveLateNightMealDate(timestamp: Long): String {
+        val zonedDateTime = java.time.Instant.ofEpochMilli(timestamp).atZone(java.time.ZoneId.systemDefault())
+        val localDateTime = zonedDateTime.toLocalDateTime()
+        val hour = localDateTime.hour
+        val dayOfWeek = localDateTime.dayOfWeek
+
+        return if (hour in 0..1) { // 00:00 ~ 01:59 (새벽 2시 이전)
+            if (dayOfWeek == java.time.DayOfWeek.FRIDAY) {
+                // 금요일 자정 ~ 새벽 2시 사이의 야식은 금요일 야식으로 처리
+                localDateTime.toLocalDate().toString()
+            } else {
+                // 다른 요일은 전날로 귀속
+                localDateTime.toLocalDate().minusDays(1).toString()
+            }
+        } else {
+            localDateTime.toLocalDate().toString()
         }
     }
 
