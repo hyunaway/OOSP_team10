@@ -13,4 +13,8 @@ data class MealLogEntity(
     val isLateNight: Boolean,
     val viaDeliveryApp: Boolean,
     val source: String,
+    val mealDate: String = "",
+    val recordedTime: String = "",
+    val inputMethod: String = "",
+    val triggerType: String = "",
 )

@@ -22,6 +22,9 @@ abstract class MealDao {
     @Query("DELETE FROM meal_logs WHERE id = :id")
     abstract suspend fun deleteById(id: Long): Int
 
+    @Query("SELECT * FROM meal_logs WHERE mealDate = :mealDate")
+    abstract suspend fun getLogsByMealDate(mealDate: String): List<MealLogEntity>
+
     fun getTodayLogs(): Flow<List<MealLogEntity>> = getLogsBetween(todayStart(), Long.MAX_VALUE)
 
     @Query("SELECT COUNT(*) FROM meal_logs WHERE isLateNight = 1 AND timestamp BETWEEN :start AND :end")

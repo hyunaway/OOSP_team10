@@ -89,16 +89,24 @@ class NotificationHelper(
         )
     }
 
-    suspend fun sendStretchReminder(message: String, trigger: String = "normal") {
+    suspend fun sendStretchReminder(message: String, trigger: String = "normal", isUrgent: Boolean = false) {
         val id = nextId()
         val contentIntent = deepLinkFactory.stretchIntent(context, trigger = trigger)
         logShown("stretch", id)
+        val channelId = if (isUrgent) {
+            HabitTrackerApplication.CHANNEL_STRETCH_URGENT
+        } else {
+            HabitTrackerApplication.CHANNEL_STRETCH
+        }
+        val title = if (isUrgent) "🚨 스트레칭 권장!" else "🧘 스트레칭 시간"
+        val priority = if (isUrgent) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT
         send(
-            channelId = HabitTrackerApplication.CHANNEL_STRETCH,
+            channelId = channelId,
             notificationId = id,
-            title = "🧘 스트레칭 시간",
+            title = title,
             body = message,
             contentIntent = contentIntent,
+            priority = priority,
         )
     }
 
@@ -112,6 +120,7 @@ class NotificationHelper(
         title: String,
         body: String,
         contentIntent: PendingIntent,
+        priority: Int = NotificationCompat.PRIORITY_DEFAULT,
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
@@ -128,7 +137,7 @@ class NotificationHelper(
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(priority)
             .build()
 
         NotificationManagerCompat.from(context).notify(notificationId, notification)

@@ -22,14 +22,17 @@ class MealRepositoryImpl @Inject constructor(
     private val mealDao: MealDao,
 ) : MealRepository {
 
+    override fun getTodayLogs(): Flow<List<MealLogEntity>> =
+        mealDao.getTodayLogs()
+
     override fun getTodayStatus(): Flow<MealTodayStatus> =
         mealDao.getTodayLogs().map { logs ->
             MealTodayStatus(
                 breakfastLogged = logs.any { it.type == MealType.BREAKFAST },
                 lunchLogged = logs.any { it.type == MealType.LUNCH },
                 dinnerLogged = logs.any { it.type == MealType.DINNER },
-                snackCount = logs.count { it.type == MealType.SNACK },
-                lateNightCount = logs.count { it.isLateNight },
+                lateNightCount = logs.count { it.isLateNight || it.type == MealType.LATE_NIGHT },
+                lateNightLogged = logs.any { it.type == MealType.LATE_NIGHT || it.isLateNight },
                 lastMealAt = logs.firstOrNull()?.timestamp,
             )
         }
@@ -40,6 +43,10 @@ class MealRepositoryImpl @Inject constructor(
         isLateNight: Boolean,
         viaDeliveryApp: Boolean,
         source: String,
+        mealDate: String,
+        recordedTime: String,
+        inputMethod: String,
+        triggerType: String,
     ) {
         mealDao.insert(
             MealLogEntity(
@@ -48,6 +55,10 @@ class MealRepositoryImpl @Inject constructor(
                 isLateNight = isLateNight,
                 viaDeliveryApp = viaDeliveryApp,
                 source = source,
+                mealDate = mealDate,
+                recordedTime = recordedTime,
+                inputMethod = inputMethod,
+                triggerType = triggerType,
             )
         )
     }
@@ -72,9 +83,9 @@ class MealRepositoryImpl @Inject constructor(
                             MealType.BREAKFAST.name to dayLogs.any { it.type == MealType.BREAKFAST },
                             MealType.LUNCH.name to dayLogs.any { it.type == MealType.LUNCH },
                             MealType.DINNER.name to dayLogs.any { it.type == MealType.DINNER },
-                            MealType.SNACK.name to dayLogs.any { it.type == MealType.SNACK },
+                            MealType.LATE_NIGHT.name to dayLogs.any { it.type == MealType.LATE_NIGHT || it.isLateNight },
                         ),
-                        lateNightCount = dayLogs.count { it.isLateNight },
+                        lateNightCount = dayLogs.count { it.isLateNight || it.type == MealType.LATE_NIGHT },
                         deliveryAppCount = dayLogs.count { it.viaDeliveryApp },
                     )
                 }

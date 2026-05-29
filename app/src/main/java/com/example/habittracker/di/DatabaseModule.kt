@@ -9,6 +9,7 @@ import com.example.habittracker.data.local.room.dao.MealDao
 import com.example.habittracker.data.local.room.dao.NotificationActionLogDao
 import com.example.habittracker.data.local.room.dao.StretchDao
 import com.example.habittracker.data.local.room.dao.WaterDao
+
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -50,4 +51,6 @@ object DatabaseModule {
     @Singleton
     fun provideNotificationActionLogDao(db: AppDatabase): NotificationActionLogDao =
         db.notificationActionLogDao()
+
+
 }

@@ -1,63 +1,54 @@
-// 경로: com/example/habittracker/data/local/room/dao/StretchDao.kt
 package com.example.habittracker.data.local.room.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Update
-import com.example.habittracker.data.entity.StretchLogEntity
-import kotlinx.coroutines.flow.Flow
-import java.util.Calendar
+import com.example.habittracker.data.entity.StretchingRecord
 
 @Dao
 abstract class StretchDao {
 
+    @Query("SELECT COUNT(*) FROM stretching_records WHERE date = :date")
+    abstract suspend fun getTodayStretchCount(date: String): Int
+
+    @Query("SELECT * FROM stretching_records WHERE date = :date")
+    abstract fun getTodayRecords(date: String): kotlinx.coroutines.flow.Flow<List<StretchingRecord>>
+
+    @Query("DELETE FROM stretching_records WHERE date = :date AND time_slot = :timeSlot")
+    abstract suspend fun deleteBySlot(date: String, timeSlot: String): Int
+
+    @Query("SELECT * FROM stretching_records WHERE date BETWEEN :startDate AND :endDate")
+    abstract fun getRecordsBetween(startDate: String, endDate: String): kotlinx.coroutines.flow.Flow<List<StretchingRecord>>
+
+    @Query("SELECT * FROM stretching_records WHERE date = :date AND time_slot = :timeSlot LIMIT 1")
+    abstract suspend fun getRecordByTimeSlot(date: String, timeSlot: String): StretchingRecord?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    abstract suspend fun insert(entity: StretchLogEntity): Long
+    abstract suspend fun insert(record: StretchingRecord): Long
 
-    @Update
-    abstract suspend fun update(entity: StretchLogEntity): Int
+    suspend fun insertStretchRecord(date: String, timeSlot: String, bodyParts: String) {
+        val now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        insert(StretchingRecord(date = date, timeSlot = timeSlot, bodyParts = bodyParts, createdAt = now))
+    }
 
-    @Query("DELETE FROM stretch_logs WHERE id = :id")
-    abstract suspend fun deleteById(id: Long): Int
+    @Query("UPDATE stretching_records SET body_parts = :bodyParts WHERE id = :id")
+    abstract suspend fun updateStretchRecord(id: Int, bodyParts: String): Int
 
-    fun getTodayLogs(): Flow<List<StretchLogEntity>> = getLogsBetween(todayStart(), Long.MAX_VALUE)
+    @Query("DELETE FROM stretching_records WHERE id = :id")
+    abstract suspend fun deleteStretchRecord(id: Int): Int
 
-    @Query("SELECT * FROM stretch_logs WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
-    abstract fun getLogsBetween(start: Long, end: Long): Flow<List<StretchLogEntity>>
+    suspend fun isGoalAchieved(date: String): Boolean {
+        return getTodayStretchCount(date) >= 4
+    }
 
-    @Query("""
-        SELECT * FROM stretch_logs
-        WHERE timestamp BETWEEN :start AND :end AND bodyPart = :bodyPart
-        ORDER BY timestamp DESC
-    """)
-    abstract fun getLogsBetweenByBodyPart(
-        start: Long,
-        end: Long,
-        bodyPart: String,
-    ): Flow<List<StretchLogEntity>>
-
-    @Query("UPDATE stretch_logs SET bodyPart = :bodyPart WHERE id = :id")
-    abstract suspend fun updateBodyPartById(id: Long, bodyPart: String): Int
-
-    @Query("SELECT bodyPart, COUNT(*) AS count FROM stretch_logs WHERE timestamp BETWEEN :start AND :end GROUP BY bodyPart")
-    abstract fun getBodyPartDistribution(start: Long, end: Long): Flow<List<BodyPartCount>>
-
-    @Query("""
-        SELECT CAST(strftime('%H', datetime(timestamp/1000, 'unixepoch', 'localtime')) AS INTEGER) AS hour,
-               COUNT(*) AS count
-        FROM stretch_logs
-        WHERE timestamp BETWEEN :start AND :end
-        GROUP BY hour
-        ORDER BY hour
-    """)
-    abstract fun getHourlyDistribution(start: Long, end: Long): Flow<List<HourlyCount>>
-
-    private fun todayStart(): Long = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
+    suspend fun calculateStreak(today: String): Int {
+        var streak = 0
+        var currentDate = java.time.LocalDate.parse(today)
+        while (isGoalAchieved(currentDate.toString())) {
+            streak++
+            currentDate = currentDate.minusDays(1)
+        }
+        return streak
+    }
 }

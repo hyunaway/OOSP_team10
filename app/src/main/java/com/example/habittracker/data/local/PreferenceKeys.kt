@@ -32,4 +32,11 @@ object PreferenceKeys {
     val AVATAR_GENDER = stringPreferencesKey("avatar_gender")
     val USER_NAME = stringPreferencesKey("user_name")
     val HAS_ONBOARDING_COMPLETED = booleanPreferencesKey("has_completed_onboarding")
+    val REGISTERED_DELIVERY_PACKAGES = stringPreferencesKey("registered_delivery_packages")
+    val LAST_MEAL_REMINDER_ID = stringPreferencesKey("last_meal_reminder_id")
+    val STRETCH_SLOT_AM_ENABLED = booleanPreferencesKey("stretch_slot_am_enabled")
+    val STRETCH_SLOT_PM_ENABLED = booleanPreferencesKey("stretch_slot_pm_enabled")
+    val STRETCH_SLOT_EVE_ENABLED = booleanPreferencesKey("stretch_slot_eve_enabled")
+    val STRETCH_SLOT_NIGHT_ENABLED = booleanPreferencesKey("stretch_slot_night_enabled")
+    val LAST_STRETCH_REMINDER_ID = stringPreferencesKey("last_stretch_reminder_id")
 }

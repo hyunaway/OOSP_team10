@@ -19,6 +19,7 @@ object WorkScheduler {
     const val TAG_DIGITAL = "digital_usage"
     const val TAG_PERSONALIZATION = "personalization"
     const val TAG_DAILY_SUMMARY = "daily_summary"
+    const val TAG_DELIVERY_APP = "delivery_app_detection"
 
     private val batteryConstraint = Constraints.Builder()
         .setRequiresBatteryNotLow(true)
@@ -32,6 +33,7 @@ object WorkScheduler {
         scheduleDigitalUsage(context)
         schedulePersonalization(context)
         scheduleDailySummary(context)
+        scheduleDeliveryAppDetection(context)
     }
 
     fun scheduleWater(context: Context, intervalMinutes: Int) {
@@ -45,19 +47,19 @@ object WorkScheduler {
     }
 
     fun scheduleMeal(context: Context) {
-        val request = PeriodicWorkRequestBuilder<MealReminderWorker>(3, TimeUnit.HOURS)
+        val request = PeriodicWorkRequestBuilder<MealReminderWorker>(15, TimeUnit.MINUTES)
             .addTag(TAG_MEAL)
             .build()
         WorkManager.getInstance(context)
-            .enqueueUniquePeriodicWork(TAG_MEAL, ExistingPeriodicWorkPolicy.KEEP, request)
+            .enqueueUniquePeriodicWork(TAG_MEAL, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 
     fun scheduleStretch(context: Context) {
-        val request = PeriodicWorkRequestBuilder<StretchReminderWorker>(1, TimeUnit.HOURS)
+        val request = PeriodicWorkRequestBuilder<StretchReminderWorker>(15, TimeUnit.MINUTES)
             .addTag(TAG_STRETCH)
             .build()
         WorkManager.getInstance(context)
-            .enqueueUniquePeriodicWork(TAG_STRETCH, ExistingPeriodicWorkPolicy.KEEP, request)
+            .enqueueUniquePeriodicWork(TAG_STRETCH, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 
     fun scheduleDigitalUsage(context: Context) {
@@ -84,9 +86,17 @@ object WorkScheduler {
             .enqueueUniquePeriodicWork(TAG_DAILY_SUMMARY, ExistingPeriodicWorkPolicy.KEEP, request)
     }
 
+    fun scheduleDeliveryAppDetection(context: Context) {
+        val request = PeriodicWorkRequestBuilder<DeliveryAppDetectionWorker>(15, TimeUnit.MINUTES)
+            .addTag(TAG_DELIVERY_APP)
+            .build()
+        WorkManager.getInstance(context)
+            .enqueueUniquePeriodicWork(TAG_DELIVERY_APP, ExistingPeriodicWorkPolicy.UPDATE, request)
+    }
+
     fun cancelAll(context: Context) {
         val wm = WorkManager.getInstance(context)
-        listOf(TAG_WATER, TAG_MEAL, TAG_STRETCH, TAG_DIGITAL, TAG_PERSONALIZATION, TAG_DAILY_SUMMARY)
+        listOf(TAG_WATER, TAG_MEAL, TAG_STRETCH, TAG_DIGITAL, TAG_PERSONALIZATION, TAG_DAILY_SUMMARY, TAG_DELIVERY_APP)
             .forEach { wm.cancelUniqueWork(it) }
     }
 
@@ -102,5 +112,6 @@ object WorkScheduler {
         scheduleDigitalUsage(context)
         schedulePersonalization(context)
         scheduleDailySummary(context)
+        scheduleDeliveryAppDetection(context)
     }
 }
