@@ -14,19 +14,19 @@ object AvatarImageMapper {
 
     @DrawableRes
     private fun resolveMale(state: AvatarState): Int = when (state) {
-        AvatarState.GOOD            -> R.drawable.avatar_male_good
-        AvatarState.MEAL_LACK       -> R.drawable.avatar_male_meal_lack
-        AvatarState.WATER_LACK      -> R.drawable.avatar_male_water_lack
-        AvatarState.DIGITAL_OVERUSE -> R.drawable.avatar_male_digital_overuse
-        AvatarState.STRETCH_LACK    -> R.drawable.avatar_male_stretch_lack
+        AvatarState.GOOD            -> R.drawable.app_avatar_male_good
+        AvatarState.MEAL_LACK       -> R.drawable.app_avatar_male_meal_lack
+        AvatarState.WATER_LACK      -> R.drawable.app_avatar_male_water_lack
+        AvatarState.DIGITAL_OVERUSE -> R.drawable.app_avatar_male_digital_overuse
+        AvatarState.STRETCH_LACK    -> R.drawable.app_avatar_male_stretch_lack
     }
 
     @DrawableRes
     private fun resolveFemale(state: AvatarState): Int = when (state) {
-        AvatarState.GOOD            -> R.drawable.avatar_female_good
-        AvatarState.MEAL_LACK       -> R.drawable.avatar_female_meal_lack
-        AvatarState.WATER_LACK      -> R.drawable.avatar_female_water_lack
-        AvatarState.DIGITAL_OVERUSE -> R.drawable.avatar_female_digital_overuse
-        AvatarState.STRETCH_LACK    -> R.drawable.avatar_female_stretch_lack
+        AvatarState.GOOD            -> R.drawable.app_avatar_female_good
+        AvatarState.MEAL_LACK       -> R.drawable.app_avatar_female_meal_lack
+        AvatarState.WATER_LACK      -> R.drawable.app_avatar_female_water_lack
+        AvatarState.DIGITAL_OVERUSE -> R.drawable.app_avatar_female_digital_overuse
+        AvatarState.STRETCH_LACK    -> R.drawable.app_avatar_female_stretch_lack
     }
 }

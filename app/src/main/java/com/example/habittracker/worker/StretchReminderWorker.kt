@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.util.MessageToneSelector
 import com.example.habittracker.util.NotificationHelper
+import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -30,6 +31,11 @@ class StretchReminderWorker @AssistedInject constructor(
             Result.success()
         } catch (e: Exception) {
             Result.retry()
+        } finally {
+            // TODO: 스트레칭 부족 판정 로직 병합 후 StretchStatus.LACK 연결
+            try {
+                WidgetUpdateHelper.updateAllWidgets(applicationContext)
+            } catch (_: Exception) {}
         }
     }
 }

@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.util.MessageToneSelector
 import com.example.habittracker.util.NotificationHelper
+import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.Calendar
@@ -31,6 +32,11 @@ class MealReminderWorker @AssistedInject constructor(
             Result.success()
         } catch (e: Exception) {
             Result.retry()
+        } finally {
+            // TODO: 식사 부족 판정 로직 병합 후 MealStatus.LACK 연결
+            try {
+                WidgetUpdateHelper.updateAllWidgets(applicationContext)
+            } catch (_: Exception) {}
         }
     }
 

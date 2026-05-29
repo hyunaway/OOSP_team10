@@ -13,6 +13,7 @@ import com.example.habittracker.domain.usecase.digital.GetTodayDigitalStatusUseC
 import com.example.habittracker.domain.usecase.digital.LogDigitalInterventionUseCase
 import com.example.habittracker.domain.usecase.digital.SaveDigitalSessionUseCase
 import com.example.habittracker.util.NotificationHelper
+import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
@@ -54,6 +55,10 @@ class DigitalUsageWorker @AssistedInject constructor(
             Result.success()
         } catch (e: Exception) {
             Result.retry()
+        } finally {
+            try {
+                WidgetUpdateHelper.updateAllWidgets(applicationContext)
+            } catch (_: Exception) {}
         }
     }
 

@@ -54,6 +54,8 @@ import com.example.habittracker.ui.theme.HabitTextPrimary
 import com.example.habittracker.ui.theme.HabitTextSecondary
 import com.example.habittracker.ui.theme.WaterBackground
 import com.example.habittracker.ui.theme.WaterPrimary
+import androidx.compose.ui.platform.LocalContext
+import com.example.habittracker.widget.WidgetUpdateHelper
 
 @Composable
 fun WaterInputScreen(
@@ -67,6 +69,7 @@ fun WaterInputScreen(
     var customAmountText by remember { mutableStateOf("") }
     var inputError by remember { mutableStateOf<String?>(null) }
     var pendingAmountMl by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
 
     val speech = when {
         status == null -> "물을 마시는 것도 좋은 습관이에요! 💧"
@@ -115,6 +118,7 @@ fun WaterInputScreen(
             amountMl = pendingAmountMl,
             onConfirm = {
                 viewModel.onDrinkButtonClick(pendingAmountMl)
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
                 pendingAmountMl = 0
                 customAmountText = ""
                 inputError = null

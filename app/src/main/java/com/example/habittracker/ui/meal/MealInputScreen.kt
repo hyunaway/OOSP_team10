@@ -51,6 +51,8 @@ import com.example.habittracker.ui.theme.HabitTextSecondary
 import com.example.habittracker.ui.theme.MealBackground
 import com.example.habittracker.ui.theme.MealPrimary
 import com.example.habittracker.ui.theme.MealSurface
+import androidx.compose.ui.platform.LocalContext
+import com.example.habittracker.widget.WidgetUpdateHelper
 
 @Composable
 fun MealInputScreen(
@@ -61,6 +63,7 @@ fun MealInputScreen(
     val avatarVm: SharedAvatarViewModel = hiltViewModel()
     val avatarUiState by avatarVm.uiState.collectAsStateWithLifecycle()
     val status = uiState.todayStatus
+    val context = LocalContext.current
 
     val completedCount = status?.let {
         listOf(it.breakfastLogged, it.lunchLogged, it.dinnerLogged).count { v -> v }
@@ -82,8 +85,15 @@ fun MealInputScreen(
     ) {
         MealStatusCard(status = status)
         MealQuickLogCard(
-            onMealClick = { viewModel.onMealButtonClick(it) },
-            onLateNight = { viewModel.onLateNightButtonClick(true) },
+            onMealClick = {
+                viewModel.onMealButtonClick(it)
+                // TODO: 식사 부족 판정 로직 병합 후 MealStatus.LACK 연결
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
+            },
+            onLateNight = {
+                viewModel.onLateNightButtonClick(true)
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
+            },
             onBack = { navController.popBackStack() },
         )
         uiState.errorMessage?.let { msg ->

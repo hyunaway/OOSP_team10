@@ -1,117 +1,197 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:background="@drawable/widget_background"
-    android:padding="12dp">
+    android:padding="10dp">
 
-    <TextView
-        android:id="@+id/titleText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="해빗프렌즈"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:textColor="#FF212121" />
-
+    <!-- 왼쪽: 픽셀 아트 아바타 -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="2"
+        android:gravity="center">
+
+        <ImageView
+            android:id="@+id/widget_avatar_image"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:scaleType="fitCenter"
+            android:contentDescription=""
+            android:src="@drawable/widget_avatar_male_good" />
+
+    </LinearLayout>
+
+    <!-- 오른쪽: 정보 패널 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="3"
+        android:orientation="vertical"
+        android:paddingLeft="8dp"
+        android:gravity="center_vertical">
+
+        <!-- 브랜드 -->
+        <TextView
+            android:id="@+id/widget_brand_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="해빗프렌즈"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:textColor="#FFFF7043" />
+
+        <!-- 말풍선 문구 -->
+        <TextView
+            android:id="@+id/widget_speech_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="오늘 습관 상태 좋아! 계속 유지해보자!"
+            android:textSize="11sp"
+            android:textColor="#FF424242"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <!-- 대표 상태 칩 -->
+        <TextView
+            android:id="@+id/widget_status_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="양호"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:textColor="#FF6D4C41"
+            android:background="@drawable/widget_status_chip_background"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp" />
+
+        <!-- 보조 상태 아이콘 3개 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <ImageView
+                android:id="@+id/widget_sub_status_1_icon"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:contentDescription=""
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/widget_sub_status_1_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="9sp"
+                android:textColor="#FF757575"
+                android:layout_marginLeft="2dp"
+                android:layout_marginRight="5dp"
+                android:visibility="gone" />
+
+            <ImageView
+                android:id="@+id/widget_sub_status_2_icon"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:contentDescription=""
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/widget_sub_status_2_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="9sp"
+                android:textColor="#FF757575"
+                android:layout_marginLeft="2dp"
+                android:layout_marginRight="5dp"
+                android:visibility="gone" />
+
+            <ImageView
+                android:id="@+id/widget_sub_status_3_icon"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:contentDescription=""
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/widget_sub_status_3_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="9sp"
+                android:textColor="#FF757575"
+                android:layout_marginLeft="2dp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- 기록하러 가기 버튼 -->
+        <TextView
+            android:id="@+id/widget_action_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:text="기록하러 가기"
+            android:textSize="10sp"
+            android:textColor="#FFFFFFFF"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:background="@drawable/widget_button_background"
+            android:paddingLeft="4dp"
+            android:paddingRight="4dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp" />
+
+    </LinearLayout>
+
+    <!--
+        레거시 호환 영역 — WidgetUpdateHelper.buildRemoteViews 및
+        HabitStatusWidgetProvider.attachPendingIntents 에서 참조하는
+        구 View ID를 유지한다. visibility="gone" 이므로 화면에 표시되지 않는다.
+    -->
+    <LinearLayout
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="4dp">
+        android:orientation="vertical"
+        android:visibility="gone">
 
         <TextView
             android:id="@+id/avatarText"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="😐"
-            android:textSize="28sp"
-            android:layout_marginEnd="8dp" />
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/waterText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="💧 물: 0ml"
-                android:textSize="12sp"
-                android:textColor="#FF424242" />
-
-            <TextView
-                android:id="@+id/abnormalStatusText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="상태 이상: 탈수"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FF1565C0"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:visibility="gone"
-                android:layout_marginTop="2dp" />
-
-            <TextView
-                android:id="@+id/speechText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="물 보충이 필요해요."
-                android:textSize="10sp"
-                android:maxLines="2"
-                android:ellipsize="end"
-                android:textColor="#FF1565C0"
-                android:visibility="gone"
-                android:layout_marginTop="2dp" />
-
-            <TextView
-                android:id="@+id/stretchText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="🧘 스트레칭: 0회"
-                android:textSize="12sp"
-                android:textColor="#FF424242"
-                android:layout_marginTop="2dp" />
-
-        </LinearLayout>
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp">
-
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/waterText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/abnormalStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/speechText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/stretchText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
         <Button
             android:id="@+id/addWaterButton"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="💧 +250ml"
-            android:textSize="11sp"
-            android:layout_marginEnd="4dp" />
-
+            android:text="" />
         <Button
             android:id="@+id/stretchButton"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="🧘 스트레칭"
-            android:textSize="11sp"
-            android:layout_marginEnd="4dp" />
-
+            android:text="" />
         <Button
             android:id="@+id/openAppButton"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="앱 열기"
-            android:textSize="11sp" />
+            android:text="" />
 
     </LinearLayout>
 
