@@ -14,6 +14,7 @@ object AvatarImageMapper {
 
     @DrawableRes
     private fun resolveMale(state: AvatarState): Int = when (state) {
+        AvatarState.WARNING         -> R.drawable.app_avatar_male_meal_lack
         AvatarState.GOOD            -> R.drawable.app_avatar_male_good
         AvatarState.MEAL_LACK       -> R.drawable.app_avatar_male_meal_lack
         AvatarState.WATER_LACK      -> R.drawable.app_avatar_male_water_lack
@@ -23,6 +24,7 @@ object AvatarImageMapper {
 
     @DrawableRes
     private fun resolveFemale(state: AvatarState): Int = when (state) {
+        AvatarState.WARNING         -> R.drawable.app_avatar_female_meal_lack
         AvatarState.GOOD            -> R.drawable.app_avatar_female_good
         AvatarState.MEAL_LACK       -> R.drawable.app_avatar_female_meal_lack
         AvatarState.WATER_LACK      -> R.drawable.app_avatar_female_water_lack
