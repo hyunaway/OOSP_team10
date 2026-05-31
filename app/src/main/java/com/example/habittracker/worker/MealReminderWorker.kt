@@ -130,7 +130,6 @@ class MealReminderWorker @AssistedInject constructor(
         } catch (e: Exception) {
             Result.retry()
         } finally {
-            // TODO: 식사 부족 판정 로직 병합 후 MealStatus.LACK 연결
             try {
                 WidgetUpdateHelper.updateAllWidgets(applicationContext)
             } catch (_: Exception) {}

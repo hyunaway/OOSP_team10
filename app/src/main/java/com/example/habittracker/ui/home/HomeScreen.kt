@@ -28,12 +28,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.LocalDrink
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material3.Button
@@ -128,10 +126,7 @@ fun HomeScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            HomeTopBar(
-                onSettingsClick = { navController.navigate("settings") },
-                onReportsClick = { navController.navigate("reports") },
-            )
+            HomeTopBar()
 
             if (showNotificationWarning) {
                 NotificationPermissionWarning()
@@ -214,38 +209,20 @@ private fun NotificationPermissionWarning() {
 }
 
 @Composable
-private fun HomeTopBar(
-    onSettingsClick: () -> Unit,
-    onReportsClick: () -> Unit,
-) {
-    Row(
+private fun HomeTopBar() {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = HabitSpacing.xs, vertical = HabitSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+        contentAlignment = Alignment.Center,
     ) {
-        IconButton(onClick = onSettingsClick) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "설정",
-                tint = HabitTextSecondary,
-            )
-        }
         Text(
             text = "해빗프렌즈",
-            modifier = Modifier.weight(1f),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = HabitTextPrimary,
         )
-        IconButton(onClick = onReportsClick) {
-            Icon(
-                imageVector = Icons.Default.BarChart,
-                contentDescription = "리포트",
-                tint = HabitTextSecondary,
-            )
-        }
     }
 }
 

@@ -197,17 +197,6 @@ private fun HabitTrackerApp(navController: NavHostController) {
 private fun HabitBottomNav(navController: NavHostController, currentRoute: String?) {
     NavigationBar {
         NavigationBarItem(
-            selected = currentRoute == Routes.HOME,
-            onClick = {
-                navController.navigate(Routes.HOME) {
-                    popUpTo(Routes.HOME) { inclusive = false }
-                    launchSingleTop = true
-                }
-            },
-            icon = { Icon(Icons.Default.Home, contentDescription = "홈") },
-            label = { Text("홈") },
-        )
-        NavigationBarItem(
             selected = currentRoute == Routes.REPORTS,
             onClick = {
                 navController.navigate(Routes.REPORTS) {
@@ -217,6 +206,17 @@ private fun HabitBottomNav(navController: NavHostController, currentRoute: Strin
             },
             icon = { Icon(Icons.Default.DateRange, contentDescription = "리포트") },
             label = { Text("리포트") },
+        )
+        NavigationBarItem(
+            selected = currentRoute == Routes.HOME,
+            onClick = {
+                navController.navigate(Routes.HOME) {
+                    popUpTo(Routes.HOME) { inclusive = false }
+                    launchSingleTop = true
+                }
+            },
+            icon = { Icon(Icons.Default.Home, contentDescription = "홈") },
+            label = { Text("홈") },
         )
         NavigationBarItem(
             selected = currentRoute == Routes.SETTINGS,

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -162,6 +164,25 @@ fun SettingsScreen(
                         selected = uiState.avatarGender == AvatarGender.FEMALE,
                         onClick = { viewModel.updateAvatarGender(AvatarGender.FEMALE) },
                         modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            SettingsCard(title = "대표 아바타 우선순위") {
+                Text(
+                    text = "아바타에 먼저 표시될 습관 순서를 설정해요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HabitTextSecondary,
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.sm))
+                uiState.categoryPriorityOrder.forEachIndexed { index, category ->
+                    PriorityItemRow(
+                        rank = index + 1,
+                        category = category,
+                        isFirst = index == 0,
+                        isLast = index == uiState.categoryPriorityOrder.lastIndex,
+                        onMoveUp = { viewModel.moveCategoryPriorityUp(index) },
+                        onMoveDown = { viewModel.moveCategoryPriorityDown(index) },
                     )
                 }
             }
@@ -495,5 +516,60 @@ private fun NotifToggleRow(
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium)
         Switch(checked = enabled, onCheckedChange = onToggle)
+    }
+}
+
+@Composable
+private fun PriorityItemRow(
+    rank: Int,
+    category: String,
+    isFirst: Boolean,
+    isLast: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    val label = when (category) {
+        "MEAL" -> "🍽 식사"
+        "WATER" -> "💧 수분"
+        "DIGITAL" -> "📱 디지털"
+        "STRETCH" -> "🧘 스트레칭"
+        else -> category
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = HabitSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "$rank.  $label",
+            style = MaterialTheme.typography.bodyMedium,
+            color = HabitTextPrimary,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(HabitSpacing.xs)) {
+            OutlinedButton(
+                onClick = onMoveUp,
+                enabled = !isFirst,
+                modifier = Modifier.size(36.dp),
+                contentPadding = PaddingValues(0.dp),
+                shape = RoundedCornerShape(HabitRadius.xs),
+                border = BorderStroke(1.dp, if (!isFirst) HabitDeepMint else HabitLineGray),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = HabitDeepMint),
+            ) {
+                Text("▲", style = MaterialTheme.typography.bodySmall)
+            }
+            OutlinedButton(
+                onClick = onMoveDown,
+                enabled = !isLast,
+                modifier = Modifier.size(36.dp),
+                contentPadding = PaddingValues(0.dp),
+                shape = RoundedCornerShape(HabitRadius.xs),
+                border = BorderStroke(1.dp, if (!isLast) HabitDeepMint else HabitLineGray),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = HabitDeepMint),
+            ) {
+                Text("▼", style = MaterialTheme.typography.bodySmall)
+            }
+        }
     }
 }

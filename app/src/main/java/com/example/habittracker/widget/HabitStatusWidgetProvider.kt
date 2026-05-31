@@ -12,9 +12,12 @@ import com.example.habittracker.MainActivity
 import com.example.habittracker.R
 import com.example.habittracker.data.AppDatabase
 import com.example.habittracker.data.entity.WaterLogEntity
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalTime
 
 class HabitStatusWidgetProvider : AppWidgetProvider() {
 
@@ -29,9 +32,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                 appWidgetIds.forEach { id ->
                     WidgetUpdateHelper.updateWidget(context, appWidgetManager, id, state)
                 }
-            } catch (_: Exception) {
-                // 업데이트 실패 시 기존 위젯 내용 유지
-            }
+            } catch (_: Exception) {}
         }
     }
 
@@ -59,6 +60,86 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                         )
                         WidgetUpdateHelper.updateAllWidgets(context)
                     } catch (_: Exception) {}
+                }
+            }
+            ACTION_ADD_STRETCH_QUICK -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val ep = EntryPointAccessors.fromApplication(
+                            context.applicationContext,
+                            WidgetDependenciesEntryPoint::class.java,
+                        )
+                        val timeSlot = when (LocalTime.now().hour) {
+                            in 0..11 -> "아침"
+                            in 12..17 -> "점심"
+                            in 18..21 -> "저녁"
+                            else -> "기타"
+                        }
+                        ep.stretchRepository().insertStretchRecord(
+                            date = LocalDate.now().toString(),
+                            timeSlot = timeSlot,
+                            bodyParts = "[\"전신\"]",
+                        )
+                        WidgetUpdateHelper.updateAllWidgets(context)
+                    } catch (_: Exception) {}
+                }
+            }
+            ACTION_CARD_CLICK -> {
+                val categoryName = intent.getStringExtra(EXTRA_CARD_CATEGORY) ?: return
+                val action = intent.getStringExtra(EXTRA_CARD_ACTION)
+                    ?: HabitWidgetRemoteViewsFactory.ACTION_NAVIGATE
+                when (action) {
+                    HabitWidgetRemoteViewsFactory.ACTION_ADD_WATER -> {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                AppDatabase.getInstance(context).waterDao().insert(
+                                    WaterLogEntity(
+                                        timestamp = System.currentTimeMillis(),
+                                        amountMl = 250,
+                                        source = "widget",
+                                    )
+                                )
+                                WidgetUpdateHelper.updateAllWidgets(context)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    HabitWidgetRemoteViewsFactory.ACTION_ADD_STRETCH -> {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val ep = EntryPointAccessors.fromApplication(
+                                    context.applicationContext,
+                                    WidgetDependenciesEntryPoint::class.java,
+                                )
+                                val timeSlot = when (LocalTime.now().hour) {
+                                    in 0..11 -> "아침"
+                                    in 12..17 -> "점심"
+                                    in 18..21 -> "저녁"
+                                    else -> "기타"
+                                }
+                                ep.stretchRepository().insertStretchRecord(
+                                    date = LocalDate.now().toString(),
+                                    timeSlot = timeSlot,
+                                    bodyParts = "[\"전신\"]",
+                                )
+                                WidgetUpdateHelper.updateAllWidgets(context)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    else -> {
+                        // NAVIGATE: 해당 카테고리 화면으로 이동
+                        val category = runCatching { WidgetHabitCategory.valueOf(categoryName) }
+                            .getOrDefault(WidgetHabitCategory.GOOD)
+                        val uri = deepLinkUri(category)
+                        if (uri != null) {
+                            launchDeepLink(context, uri)
+                        } else {
+                            context.startActivity(
+                                Intent(context, MainActivity::class.java).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            )
+                        }
+                    }
                 }
             }
             ACTION_OPEN_STRETCH -> {
@@ -106,23 +187,23 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_ADD_WATER_250 = "com.example.habittracker.widget.ACTION_ADD_WATER_250"
+        const val ACTION_ADD_STRETCH_QUICK = "com.example.habittracker.widget.ACTION_ADD_STRETCH_QUICK"
         const val ACTION_OPEN_STRETCH = "com.example.habittracker.widget.ACTION_OPEN_STRETCH"
         const val ACTION_OPEN_APP = "com.example.habittracker.widget.ACTION_OPEN_APP"
         const val ACTION_REFRESH_WIDGET = "com.example.habittracker.widget.ACTION_REFRESH_WIDGET"
         const val ACTION_GO_TO_DOMINANT = "com.example.habittracker.widget.ACTION_GO_TO_DOMINANT"
+        const val ACTION_CARD_CLICK = "com.example.habittracker.widget.ACTION_CARD_CLICK"
+
+        const val EXTRA_CARD_CATEGORY = "extra_card_category"
+        const val EXTRA_CARD_ACTION = "extra_card_action"
 
         fun attachPendingIntents(context: Context, views: RemoteViews) {
-            // 기록하러 가기 → 대표 상태 화면으로 이동
-            views.setOnClickPendingIntent(
-                R.id.widget_action_button,
-                broadcastPendingIntent(context, ACTION_GO_TO_DOMINANT, 2005),
-            )
             // 아바타 클릭 → 위젯 새로고침
             views.setOnClickPendingIntent(
                 R.id.widget_avatar_image,
                 broadcastPendingIntent(context, ACTION_REFRESH_WIDGET, 2006),
             )
-            // 레거시 hidden 뷰용 — 기존 브로드캐스트 유지
+            // 레거시 hidden 뷰용
             views.setOnClickPendingIntent(
                 R.id.addWaterButton,
                 broadcastPendingIntent(context, ACTION_ADD_WATER_250, 2001),
@@ -139,6 +220,34 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                 R.id.avatarText,
                 broadcastPendingIntent(context, ACTION_REFRESH_WIDGET, 2004),
             )
+            views.setOnClickPendingIntent(
+                R.id.widget_action_button,
+                broadcastPendingIntent(context, ACTION_GO_TO_DOMINANT, 2008),
+            )
+            views.setOnClickPendingIntent(
+                R.id.widget_right_panel,
+                broadcastPendingIntent(context, ACTION_GO_TO_DOMINANT, 2005),
+            )
+        }
+
+        /**
+         * StackView 카드 클릭용 브로드캐스트 PendingIntent 템플릿.
+         * 각 카드 아이템의 fill-in Intent와 합쳐져 ACTION_CARD_CLICK으로 전달된다.
+         */
+        fun cardClickTemplateIntent(context: Context): PendingIntent =
+            broadcastPendingIntent(context, ACTION_CARD_CLICK, 3000)
+
+        /** 빠른 기록 버튼 (단일 카드 모드 호환) — 카테고리별 PendingIntent */
+        fun quickActionPendingIntent(
+            context: Context,
+            dominantCategory: WidgetHabitCategory,
+        ): PendingIntent {
+            val action = when (dominantCategory) {
+                WidgetHabitCategory.WATER -> ACTION_ADD_WATER_250
+                WidgetHabitCategory.STRETCH -> ACTION_ADD_STRETCH_QUICK
+                else -> ACTION_GO_TO_DOMINANT
+            }
+            return broadcastPendingIntent(context, action, 2007)
         }
 
         private fun deepLinkUri(category: WidgetHabitCategory): Uri? = when (category) {

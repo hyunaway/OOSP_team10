@@ -11,6 +11,7 @@ object AvatarStateResolver {
     private const val WATER_LACK_THRESHOLD = 0.5f
     private const val DEFAULT_DIGITAL_LIMIT_MINUTES = 120
     private const val MEAL_MIN_LOGGED_COUNT = 2
+    private const val STRETCH_GOAL_COUNT = 5
 
     fun resolve(
         mealStatus: MealTodayStatus,
@@ -43,7 +44,7 @@ object AvatarStateResolver {
         status.totalUsageMinutes > limitMinutes
 
     private fun isStretchLacking(status: StretchTodayStatus): Boolean =
-        status.totalCount == 0
+        status.totalCount < STRETCH_GOAL_COUNT
 }
 
 data class AvatarResolveResult(
