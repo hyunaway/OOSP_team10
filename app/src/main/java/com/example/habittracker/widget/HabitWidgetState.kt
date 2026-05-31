@@ -22,6 +22,18 @@ data class HabitWidgetState(
     val mealStatus: MealStatus = MealStatus.NORMAL,
     val stretchStatus: StretchStatus = StretchStatus.NORMAL,
     val digitalUsageMinutes: Int = 0,
+    // 카테고리별 상세 상태 목록 (StackView 등 다중 항목 표시용)
+    val categoryStates: List<WidgetHabitState> = emptyList(),
+)
+
+/** 카테고리별 위험 상태를 담는 단위 모델 */
+data class WidgetHabitState(
+    val category: WidgetHabitCategory,
+    val isRisk: Boolean,
+    val title: String,
+    val message: String,
+    val description: String,
+    val actionText: String,
 )
 
 enum class WidgetAbnormalStatusType {
@@ -45,13 +57,11 @@ enum class WidgetGender {
     FEMALE,
 }
 
-// placeholder — 다른 조원의 Meal 로직 병합 후 LACK 연결
 enum class MealStatus {
     NORMAL,
     LACK,
 }
 
-// placeholder — 다른 조원의 Stretch 로직 병합 후 LACK 연결
 enum class StretchStatus {
     NORMAL,
     LACK,

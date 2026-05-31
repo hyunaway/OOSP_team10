@@ -351,7 +351,7 @@ private fun InsightsCard(
             verticalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
         ) {
             Text(
-                text = "해빗프렌즈의 작은 인사이트",
+                text = "해빗프렌즈 인사이트",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = HabitTextPrimary,

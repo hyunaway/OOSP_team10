@@ -1,6 +1,7 @@
 // 경로: com/example/habittracker/ui/stretch/StretchViewModel.kt
 package com.example.habittracker.ui.stretch
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.entity.StretchingRecord
@@ -9,7 +10,9 @@ import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseC
 import com.example.habittracker.util.NotificationHelper
 import com.example.habittracker.domain.repository.StretchRepository
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +24,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class StretchViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val getTodayStretchStatusUseCase: GetTodayStretchStatusUseCase,
     private val stretchRepository: StretchRepository,
     val userPreferenceManager: UserPreferenceManager,
@@ -133,6 +137,7 @@ class StretchViewModel @Inject constructor(
                 val bodyPartsJson = toJsonBodyParts(bodyParts)
                 stretchRepository.insertStretchRecord(date, timeSlot, bodyPartsJson)
                 refreshData()
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
 
                 // 50% 이상 달성 축하 알림 체크
                 try {
@@ -177,8 +182,8 @@ class StretchViewModel @Inject constructor(
                 // Room DB에서 물리적 삭제 시도
                 val deletedRows = stretchRepository.deleteLogBySlot(date, timeSlot)
                 if (deletedRows > 0) {
-                    // 삭제 성공 시 리프레시를 통해 UI 업데이트 및 재계산 유도
                     refreshData()
+                    WidgetUpdateHelper.updateAllWidgetsSync(context)
                 } else {
                     // 삭제 실패 시 에러 핸들링
                     _toastMessage.value = "기록 삭제에 실패했습니다."

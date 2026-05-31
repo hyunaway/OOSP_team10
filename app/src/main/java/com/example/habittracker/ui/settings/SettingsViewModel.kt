@@ -11,7 +11,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.data.usage.UsageStatsHelper
 import com.example.habittracker.ui.avatar.AvatarGender
+import com.example.habittracker.widget.WidgetUpdateHelper
 import com.example.habittracker.worker.WorkScheduler
+import kotlinx.coroutines.Dispatchers
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,6 +64,10 @@ class SettingsViewModel @Inject constructor(
                 }
                 .combine(userPreferenceManager.digitalInterventionCooldownMinutesFlow) { state, cooldown ->
                     state.copy(digitalInterventionCooldownMinutes = cooldown)
+                }
+                .combine(userPreferenceManager.categoryPriorityOrderFlow) { state, order ->
+                    val parsed = order.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                    state.copy(categoryPriorityOrder = parsed.ifEmpty { listOf("MEAL", "WATER", "DIGITAL", "STRETCH") })
                 }
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
                 .collect { state ->
@@ -129,6 +135,30 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(userName = name, isSaved = false) }
     }
 
+    fun moveCategoryPriorityUp(index: Int) {
+        if (index <= 0) return
+        val order = _uiState.value.categoryPriorityOrder.toMutableList()
+        val temp = order[index]; order[index] = order[index - 1]; order[index - 1] = temp
+        val newOrder = order.joinToString(",")
+        _uiState.update { it.copy(categoryPriorityOrder = order) }
+        viewModelScope.launch(Dispatchers.IO) {
+            userPreferenceManager.updateCategoryPriorityOrder(newOrder)
+            WidgetUpdateHelper.updateAllWidgets(getApplication())
+        }
+    }
+
+    fun moveCategoryPriorityDown(index: Int) {
+        val order = _uiState.value.categoryPriorityOrder.toMutableList()
+        if (index >= order.lastIndex) return
+        val temp = order[index]; order[index] = order[index + 1]; order[index + 1] = temp
+        val newOrder = order.joinToString(",")
+        _uiState.update { it.copy(categoryPriorityOrder = order) }
+        viewModelScope.launch(Dispatchers.IO) {
+            userPreferenceManager.updateCategoryPriorityOrder(newOrder)
+            WidgetUpdateHelper.updateAllWidgets(getApplication())
+        }
+    }
+
     fun saveSettings() {
         viewModelScope.launch {
             try {
@@ -143,6 +173,7 @@ class SettingsViewModel @Inject constructor(
                 userPreferenceManager.updateDigitalInterventionThresholdMinutes(state.digitalInterventionThresholdMinutes)
                 userPreferenceManager.updateDigitalInterventionCooldownMinutes(state.digitalInterventionCooldownMinutes)
                 WorkScheduler.rescheduleAll(getApplication(), userPreferenceManager)
+                WidgetUpdateHelper.updateAllWidgetsSync(getApplication())
                 _uiState.update { it.copy(isSaved = true, errorMessage = null) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }

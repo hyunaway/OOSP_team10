@@ -107,7 +107,6 @@ class StretchReminderWorker @AssistedInject constructor(
         } catch (e: Exception) {
             Result.retry()
         } finally {
-            // TODO: 스트레칭 부족 판정 로직 병합 후 StretchStatus.LACK 연결
             try {
                 WidgetUpdateHelper.updateAllWidgets(applicationContext)
             } catch (_: Exception) {}

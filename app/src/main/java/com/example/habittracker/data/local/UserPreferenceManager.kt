@@ -91,6 +91,9 @@ class UserPreferenceManager @Inject constructor(
     val stretchSlotEveEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_EVE_ENABLED] ?: true }
     val stretchSlotNightEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_NIGHT_ENABLED] ?: true }
     val lastStretchReminderIdFlow: Flow<String> = dataStore.data.map { it[PreferenceKeys.LAST_STRETCH_REMINDER_ID] ?: "" }
+    val categoryPriorityOrderFlow: Flow<String> = dataStore.data.map {
+        it[PreferenceKeys.CATEGORY_PRIORITY_ORDER] ?: DEFAULT_CATEGORY_PRIORITY_ORDER
+    }
 
     // ── Update functions ─────────────────────────────────────────────────────
 
@@ -212,6 +215,10 @@ class UserPreferenceManager @Inject constructor(
         dataStore.edit { it[PreferenceKeys.LAST_STRETCH_REMINDER_ID] = value }
     }
 
+    suspend fun updateCategoryPriorityOrder(value: String) {
+        dataStore.edit { it[PreferenceKeys.CATEGORY_PRIORITY_ORDER] = value }
+    }
+
     // ── Utility ──────────────────────────────────────────────────────────────
 
     fun getBedTimeAsMinutes(): Flow<Int> = bedTimeFlow.map { parseTimeToMinutes(it) }
@@ -250,5 +257,6 @@ class UserPreferenceManager @Inject constructor(
         const val DEFAULT_AVATAR_GENDER = "MALE"
         const val DEFAULT_USER_NAME = ""
         const val DEFAULT_DELIVERY_PACKAGES = "com.sample.baemin,com.sample.coupangeats"
+        const val DEFAULT_CATEGORY_PRIORITY_ORDER = "MEAL,WATER,DIGITAL,STRETCH"
     }
 }

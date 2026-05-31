@@ -1,6 +1,7 @@
 // 경로: com/example/habittracker/ui/meal/MealViewModel.kt
 package com.example.habittracker.ui.meal
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.model.MealType
@@ -8,7 +9,9 @@ import com.example.habittracker.domain.repository.MealRepository
 import com.example.habittracker.domain.usecase.meal.AddMealLogUseCase
 import com.example.habittracker.domain.usecase.meal.GetMealHistoryUseCase
 import com.example.habittracker.domain.usecase.meal.GetTodayMealStatusUseCase
+import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +22,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MealViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val getTodayMealStatusUseCase: GetTodayMealStatusUseCase,
     private val addMealLogUseCase: AddMealLogUseCase,
     private val getMealHistoryUseCase: GetMealHistoryUseCase,
@@ -60,6 +64,7 @@ class MealViewModel @Inject constructor(
                     mealDate = java.time.LocalDate.now().toString(),
                     recordedTime = java.time.LocalTime.now().toString(),
                 )
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
@@ -70,6 +75,7 @@ class MealViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 mealRepository.deleteLog(id)
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
@@ -95,6 +101,7 @@ class MealViewModel @Inject constructor(
                     inputMethod = inputMethod,
                     triggerType = triggerType,
                 )
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
