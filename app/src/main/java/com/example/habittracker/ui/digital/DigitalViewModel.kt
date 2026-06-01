@@ -40,6 +40,15 @@ class DigitalViewModel @Inject constructor(
                     _uiState.update { it.copy(selectedDigitalPackages = packages) }
                 }
         }
+        viewModelScope.launch {
+            userPreferenceManager.digitalInterventionThresholdMinutesFlow
+                .catch { e -> _uiState.update { it.copy(errorMessage = e.message) } }
+                .collect { thresholdMinutes ->
+                    _uiState.update {
+                        it.copy(digitalInterventionThresholdMinutes = thresholdMinutes.coerceAtLeast(1))
+                    }
+                }
+        }
     }
 
     fun onInterventionAction(interventionId: Long, actionType: String) {

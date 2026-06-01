@@ -1,4 +1,3 @@
-// 경로: com/example/habittracker/ui/meal/MealInputScreen.kt
 package com.example.habittracker.ui.meal
 
 import androidx.compose.foundation.BorderStroke
@@ -25,6 +24,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,9 +55,7 @@ import com.example.habittracker.ui.theme.HabitTextPrimary
 import com.example.habittracker.ui.theme.HabitTextSecondary
 import com.example.habittracker.ui.theme.MealBackground
 import com.example.habittracker.ui.theme.MealPrimary
-import com.example.habittracker.ui.theme.MealSurface
-import androidx.compose.ui.platform.LocalContext
-import com.example.habittracker.widget.WidgetUpdateHelper
+import java.time.LocalDate
 
 @Composable
 fun MealInputScreen(
@@ -68,26 +66,17 @@ fun MealInputScreen(
     val avatarVm: SharedAvatarViewModel = hiltViewModel()
     val avatarUiState by avatarVm.uiState.collectAsStateWithLifecycle()
     val status = uiState.todayStatus
-    val context = LocalContext.current
 
-    // 취소 팝업 다이얼로그 타겟 로그 ID 관리
-    var cancelLogId by remember { mutableStateOf<Long?>(null) }
+    var showCancelDialog by remember { mutableStateOf(false) }
+    var showMissedMealDialog by remember { mutableStateOf(false) }
+    val latestLog = uiState.todayLogs.firstOrNull()
+    val visibleMessage = uiState.transientMessage
+        ?: uiState.classificationMessage
+        ?: uiState.dailyStatusMessage
 
-    val completedCount = status?.let {
-        listOf(it.breakfastLogged, it.lunchLogged, it.dinnerLogged).count { v -> v }
-    } ?: 0
-
-    val speech = when {
-        completedCount >= 3 -> "오늘 식사를 잘 챙겼어요!\n균형 잡힌 하루예요 🍽️"
-        completedCount == 0 -> "아직 식사 기록이 없어요.\n가볍게라도 챙겨볼까요? 🍽️"
-        else -> "식사를 ${completedCount}번 드셨군요.\n조금 더 챙겨봐요! 😊"
-    }
-
-    // 딥링크 개입 팝업 상태 관리 (배달앱 감지 유입 시)
     val navBackStackEntry = navController.currentBackStackEntry
     val deepLinkType = navBackStackEntry?.arguments?.getString("type")
     val deepLinkSource = navBackStackEntry?.arguments?.getString("source")
-
     var showInterventionDialog by remember(deepLinkType, deepLinkSource) {
         mutableStateOf(deepLinkType == "LATE_NIGHT" && deepLinkSource == "delivery_app")
     }
@@ -95,12 +84,12 @@ fun MealInputScreen(
     if (showInterventionDialog) {
         AlertDialog(
             onDismissRequest = { showInterventionDialog = false },
-            title = { Text("야식의 유혹 ⚠️", fontWeight = FontWeight.Bold) },
-            text = { Text("배달앱 실행이 감지되었습니다. 야식 대신 시원한 물 한 잔을 마시거나 가벼운 스트레칭으로 몸을 깨워보는 건 어떨까요?") },
+            title = { Text("야식 감지", fontWeight = FontWeight.Bold) },
+            text = { Text("배달앱 실행이 감지되었어요. 물을 마시거나 가벼운 스트레칭으로 몸을 깨워볼까요?") },
             confirmButton = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Button(
                         onClick = {
@@ -108,9 +97,9 @@ fun MealInputScreen(
                             navController.navigate("water?source=late_night_intervention")
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MealPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = MealPrimary),
                     ) {
-                        Text("💧 물 마시러 가기")
+                        Text("물 마시러 가기")
                     }
                     Button(
                         onClick = {
@@ -118,77 +107,82 @@ fun MealInputScreen(
                             navController.navigate("stretch?trigger=late_night_intervention")
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MealPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = MealPrimary),
                     ) {
-                        Text("🧘 스트레칭 하러 가기")
+                        Text("스트레칭 하러 가기")
                     }
                 }
             },
             dismissButton = {
                 OutlinedButton(
                     onClick = { showInterventionDialog = false },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("그냥 기록할래요")
                 }
-            }
+            },
         )
     }
 
-    // 취소 확인 팝업
-    if (cancelLogId != null) {
+    if (showCancelDialog && latestLog != null) {
         AlertDialog(
-            onDismissRequest = { cancelLogId = null },
-            title = { Text("식사 기록 취소") },
-            text = { Text("이 기록을 취소하시겠습니까?") },
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("최근 식사 기록 취소") },
+            text = {
+                Text("${viewModel.formatMealTime(latestLog)} ${viewModel.mealLabel(latestLog)} 기록을 취소할까요?")
+            },
             confirmButton = {
                 Button(
                     onClick = {
-                        cancelLogId?.let { viewModel.onCancelMealClick(it) }
-                        cancelLogId = null
+                        viewModel.cancelLatestMealLog()
+                        showCancelDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MealPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = MealPrimary),
                 ) {
-                    Text("예")
+                    Text("취소하기")
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { cancelLogId = null }) {
-                    Text("아니오")
+                OutlinedButton(onClick = { showCancelDialog = false }) {
+                    Text("닫기")
                 }
-            }
+            },
+        )
+    }
+
+    if (showMissedMealDialog) {
+        MissedMealDialog(
+            onDismiss = { showMissedMealDialog = false },
+            onConfirm = { time ->
+                viewModel.onMissedMealTimeSelected(time)
+                showMissedMealDialog = false
+            },
         )
     }
 
     CategoryScaffold(
         category = HabitCategoryStyle.MEAL,
-        title = "해빗프렌즈",
-        speech = speech,
+        title = "식사",
+        speech = visibleMessage ?: "현재 시간과 생활 패턴에 맞춰 식사 리듬을 챙겨봐요.",
         avatarUiState = avatarUiState,
         onSettingsClick = { navController.navigate("settings") },
         onReportsClick = { navController.navigate("reports") },
     ) {
-        MealStatusCard(status = status)
+        MealStatusCard(status = status, dailyStatusMessage = uiState.dailyStatusMessage)
         MealQuickLogCard(
             todayLogs = uiState.todayLogs,
-            onMealClick = { type ->
-                val log = uiState.todayLogs.firstOrNull { it.type == type }
-                if (log != null) {
-                    cancelLogId = log.id
-                } else {
-                    viewModel.onMealButtonClick(type)
-                }
-            },
-            onLateNight = {
-                val log = uiState.todayLogs.firstOrNull { it.type == MealType.LATE_NIGHT || it.isLateNight }
-                if (log != null) {
-                    cancelLogId = log.id
-                } else {
-                    viewModel.onLateNightClick("manual", "direct")
-                }
-            },
-            onBack = { navController.popBackStack() },
+            logsExpanded = uiState.mealLogsExpanded,
+            latestLog = latestLog,
+            onRecordMeal = { viewModel.onAutoMealRecordClick() },
+            onToggleLogs = { viewModel.toggleMealLogsExpanded() },
+            onAddMissedMeal = { showMissedMealDialog = true },
+            onCancelLatest = { showCancelDialog = true },
+            mealLabel = viewModel::mealLabel,
+            mealTime = viewModel::formatMealTime,
         )
+        visibleMessage?.let { msg ->
+            Text(text = msg, color = MealPrimary, modifier = Modifier.padding(16.dp))
+        }
         uiState.errorMessage?.let { msg ->
             Text(text = msg, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
         }
@@ -196,7 +190,10 @@ fun MealInputScreen(
 }
 
 @Composable
-private fun MealStatusCard(status: MealTodayStatus?) {
+private fun MealStatusCard(
+    status: MealTodayStatus?,
+    dailyStatusMessage: String?,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(HabitRadius.card),
@@ -211,7 +208,7 @@ private fun MealStatusCard(status: MealTodayStatus?) {
                     modifier = Modifier.size(44.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("🍽️", style = MaterialTheme.typography.titleLarge)
+                        Text("식", style = MaterialTheme.typography.titleLarge)
                     }
                 }
                 Spacer(modifier = Modifier.width(HabitSpacing.sm))
@@ -223,7 +220,7 @@ private fun MealStatusCard(status: MealTodayStatus?) {
                         color = HabitTextPrimary,
                     )
                     Text(
-                        text = "카테고리",
+                        text = "오늘 식사 상태",
                         style = MaterialTheme.typography.bodySmall,
                         color = HabitTextSecondary,
                     )
@@ -236,17 +233,25 @@ private fun MealStatusCard(status: MealTodayStatus?) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                MealBadge(label = "아침", emoji = "🌅", checked = status?.breakfastLogged == true)
-                MealBadge(label = "점심", emoji = "☀️", checked = status?.lunchLogged == true)
-                MealBadge(label = "저녁", emoji = "🌙", checked = status?.dinnerLogged == true)
-                MealBadge(label = "야식", emoji = "🌙", checked = status?.lateNightLogged == true)
+                MealBadge(label = "아침", checked = status?.breakfastLogged == true)
+                MealBadge(label = "점심", checked = status?.lunchLogged == true)
+                MealBadge(label = "저녁", checked = status?.dinnerLogged == true)
+                MealBadge(label = "야식", checked = status?.lateNightLogged == true)
+            }
+            dailyStatusMessage?.let {
+                Spacer(modifier = Modifier.height(HabitSpacing.base))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HabitTextSecondary,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun MealBadge(label: String, emoji: String, checked: Boolean) {
+private fun MealBadge(label: String, checked: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
             shape = CircleShape,
@@ -262,7 +267,7 @@ private fun MealBadge(label: String, emoji: String, checked: Boolean) {
                         modifier = Modifier.size(20.dp),
                     )
                 } else {
-                    Text(emoji, style = MaterialTheme.typography.bodyMedium)
+                    Text(label.take(1), style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -279,16 +284,15 @@ private fun MealBadge(label: String, emoji: String, checked: Boolean) {
 @Composable
 private fun MealQuickLogCard(
     todayLogs: List<MealLogEntity>,
-    onMealClick: (MealType) -> Unit,
-    onLateNight: () -> Unit,
-    onBack: () -> Unit,
+    logsExpanded: Boolean,
+    latestLog: MealLogEntity?,
+    onRecordMeal: () -> Unit,
+    onToggleLogs: () -> Unit,
+    onAddMissedMeal: () -> Unit,
+    onCancelLatest: () -> Unit,
+    mealLabel: (MealLogEntity) -> String,
+    mealTime: (MealLogEntity) -> String,
 ) {
-    val breakfastLog = todayLogs.any { it.type == MealType.BREAKFAST }
-    val lunchLog = todayLogs.any { it.type == MealType.LUNCH }
-    val dinnerLog = todayLogs.any { it.type == MealType.DINNER }
-
-    val lateNightLog = todayLogs.any { it.type == MealType.LATE_NIGHT || it.isLateNight }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(HabitRadius.card),
@@ -300,37 +304,107 @@ private fun MealQuickLogCard(
             verticalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
         ) {
             Text(
-                text = "어떤 끼니를 드셨나요?",
+                text = "식사를 기록할까요?",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = HabitTextPrimary,
             )
-            Row(
+            Text(
+                text = "현재 시간과 생활 패턴을 기준으로 자동으로 판단해요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = HabitTextSecondary,
+            )
+            Button(
+                onClick = onRecordMeal,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
+                shape = RoundedCornerShape(HabitRadius.button),
+                colors = ButtonDefaults.buttonColors(containerColor = MealPrimary),
             ) {
-                MealTypeButton("아침", breakfastLog, Modifier.weight(1f)) { onMealClick(MealType.BREAKFAST) }
-                MealTypeButton("점심", lunchLog, Modifier.weight(1f)) { onMealClick(MealType.LUNCH) }
+                Text("식사 기록하기", fontWeight = FontWeight.Bold, color = Color.White)
             }
-            Row(
+            OutlinedButton(
+                onClick = onAddMissedMeal,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
+                shape = RoundedCornerShape(HabitRadius.button),
+                border = BorderStroke(1.dp, MealPrimary),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MealPrimary),
             ) {
-                MealTypeButton("저녁", dinnerLog, Modifier.weight(1f)) { onMealClick(MealType.DINNER) }
-                MealTypeButton("야식", lateNightLog, Modifier.weight(1f)) { onLateNight() }
+                Text("놓친 기록 추가", fontWeight = FontWeight.Medium)
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
-            ) {
+            latestLog?.let { log ->
+                Text(
+                    text = "최근 기록: ${mealLabel(log)} · ${mealTime(log)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HabitTextSecondary,
+                )
                 OutlinedButton(
-                    onClick = onBack,
+                    onClick = onCancelLatest,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(HabitRadius.button),
                     border = BorderStroke(1.dp, HabitLineGray),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = HabitTextSecondary),
                 ) {
-                    Text("나중에", fontWeight = FontWeight.Medium)
+                    Text("최근 기록 취소하기", fontWeight = FontWeight.Medium)
+                }
+            }
+            OutlinedButton(
+                onClick = onToggleLogs,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(HabitRadius.button),
+                border = BorderStroke(1.dp, HabitLineGray),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = HabitTextSecondary),
+            ) {
+                Text(
+                    text = if (logsExpanded) "식사 기록 접기" else "식사 기록 펼치기",
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            if (logsExpanded) {
+                MealLogList(
+                    logs = todayLogs,
+                    mealLabel = mealLabel,
+                    mealTime = mealTime,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MealLogList(
+    logs: List<MealLogEntity>,
+    mealLabel: (MealLogEntity) -> String,
+    mealTime: (MealLogEntity) -> String,
+) {
+    if (logs.isEmpty()) {
+        Text(
+            text = "아직 오늘 식사 기록이 없어요.",
+            style = MaterialTheme.typography.bodySmall,
+            color = HabitTextSecondary,
+        )
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(HabitSpacing.xs)) {
+        logs.forEach { log ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = "${mealLabel(log)} · ${mealTime(log)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = HabitTextPrimary,
+                    )
+                    if (log.mealDate != LocalDate.now().toString()) {
+                        Text(
+                            text = "전날 야식으로 기록됨",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = HabitTextSecondary,
+                        )
+                    }
                 }
             }
         }
@@ -338,39 +412,42 @@ private fun MealQuickLogCard(
 }
 
 @Composable
-private fun MealTypeButton(
-    label: String,
-    completed: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
+private fun MissedMealDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
 ) {
-    if (completed) {
-        Button(
-            onClick = onClick,
-            modifier = modifier,
-            shape = RoundedCornerShape(HabitRadius.button),
-            colors = ButtonDefaults.buttonColors(containerColor = MealPrimary),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = Color.White
+    var timeText by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("놓친 기록 추가") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(HabitSpacing.sm)) {
+                Text(
+                    text = "오늘 먹은 시간을 HH:mm 형식으로 입력해주세요. 분류는 앱이 자동으로 판단해요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HabitTextSecondary,
                 )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(label, fontWeight = FontWeight.Bold, color = Color.White)
+                OutlinedTextField(
+                    value = timeText,
+                    onValueChange = { timeText = it },
+                    label = { Text("예: 14:30") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-        }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            modifier = modifier,
-            shape = RoundedCornerShape(HabitRadius.button),
-            border = BorderStroke(1.dp, MealPrimary),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MealPrimary),
-        ) {
-            Text(label, fontWeight = FontWeight.Medium)
-        }
-    }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(timeText) },
+                colors = ButtonDefaults.buttonColors(containerColor = MealPrimary),
+            ) {
+                Text("추가")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("닫기")
+            }
+        },
+    )
 }

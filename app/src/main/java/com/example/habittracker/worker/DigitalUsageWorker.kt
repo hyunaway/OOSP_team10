@@ -13,6 +13,7 @@ import com.example.habittracker.domain.usecase.digital.GetTodayDigitalStatusUseC
 import com.example.habittracker.domain.usecase.digital.LogDigitalInterventionUseCase
 import com.example.habittracker.domain.usecase.digital.SaveDigitalSessionUseCase
 import com.example.habittracker.util.NotificationHelper
+import com.example.habittracker.util.formatMinutes
 import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -101,7 +102,7 @@ class DigitalUsageWorker @AssistedInject constructor(
 
     private fun buildInterventionMessage(appPackage: String, totalMinutes: Int): String {
         val appName = resolveAppName(appPackage)
-        return "${appName}를 벌써 ${totalMinutes}분 사용했어요. 잠깐 눈을 쉬어볼까요?"
+        return "${appName}를 벌써 ${formatMinutes(totalMinutes)} 사용했어요. 잠깐 눈을 쉬어볼까요?"
     }
 
     private fun resolveAppName(appPackage: String): String {

@@ -37,6 +37,12 @@ class MealRepositoryImpl @Inject constructor(
             )
         }
 
+    override suspend fun getLogsByMealDate(mealDate: String): List<MealLogEntity> =
+        mealDao.getLogsByMealDate(mealDate)
+
+    override fun observeLogsByMealDate(mealDate: String): Flow<List<MealLogEntity>> =
+        mealDao.observeLogsByMealDate(mealDate)
+
     override suspend fun addLog(
         type: MealType,
         timestamp: Long,
