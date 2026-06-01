@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,10 +44,16 @@ import com.example.habittracker.ui.stretch.StretchInputScreen
 import com.example.habittracker.ui.theme.HabitBackground
 import com.example.habittracker.ui.theme.HabitTrackerTheme
 import com.example.habittracker.ui.water.WaterInputScreen
+import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var markUserActiveUseCase: MarkUserActiveUseCase
 
     private var navHostController: NavHostController? = null
 
@@ -65,6 +72,13 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         navHostController?.handleDeepLink(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            markUserActiveUseCase(MarkUserActiveUseCase.SOURCE_APP_RESUME)
+        }
     }
 }
 

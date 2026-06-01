@@ -9,6 +9,7 @@ import com.example.habittracker.data.model.BodyPartType
 import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseCase
 import com.example.habittracker.util.NotificationHelper
 import com.example.habittracker.domain.repository.StretchRepository
+import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,6 +30,7 @@ class StretchViewModel @Inject constructor(
     private val stretchRepository: StretchRepository,
     val userPreferenceManager: UserPreferenceManager,
     private val notificationHelper: NotificationHelper,
+    private val markUserActiveUseCase: MarkUserActiveUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StretchUiState())
@@ -136,6 +138,7 @@ class StretchViewModel @Inject constructor(
                 val date = java.time.LocalDate.now().toString()
                 val bodyPartsJson = toJsonBodyParts(bodyParts)
                 stretchRepository.insertStretchRecord(date, timeSlot, bodyPartsJson)
+                markUserActiveUseCase(MarkUserActiveUseCase.SOURCE_STRETCH_LOG)
                 refreshData()
                 WidgetUpdateHelper.updateAllWidgetsSync(context)
 

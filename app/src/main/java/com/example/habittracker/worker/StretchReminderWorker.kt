@@ -26,6 +26,10 @@ class StretchReminderWorker @AssistedInject constructor(
 
     override suspend fun doRemind(): Result {
         return try {
+            if (userPreferenceManager.todayActiveStartedAtFlow.first() == null) {
+                return Result.success()
+            }
+
             val calendar = Calendar.getInstance()
             val hour = calendar.get(Calendar.HOUR_OF_DAY)
             val minute = calendar.get(Calendar.MINUTE)

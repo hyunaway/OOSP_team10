@@ -7,6 +7,7 @@ import com.example.habittracker.data.entity.MealLogEntity
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.data.model.MealType
 import com.example.habittracker.domain.repository.MealRepository
+import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.meal.AddMealLogUseCase
 import com.example.habittracker.domain.usecase.meal.GetMealHistoryUseCase
 import com.example.habittracker.domain.usecase.meal.GetTodayMealStatusUseCase
@@ -42,6 +43,7 @@ class MealViewModel @Inject constructor(
     private val userPreferenceManager: UserPreferenceManager,
     private val mealClassifier: MealClassifier,
     private val mealDailyStatusCalculator: MealDailyStatusCalculator,
+    private val markUserActiveUseCase: MarkUserActiveUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MealUiState())
@@ -238,6 +240,7 @@ class MealViewModel @Inject constructor(
                     inputMethod = inputMethod,
                     triggerType = triggerType,
                 )
+                markUserActiveUseCase(MarkUserActiveUseCase.SOURCE_MEAL_LOG)
                 WidgetUpdateHelper.updateAllWidgetsSync(context)
 
                 val message = listOfNotNull(successPrefix, classification.message)

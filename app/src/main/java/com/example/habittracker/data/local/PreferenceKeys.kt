@@ -4,6 +4,7 @@ package com.example.habittracker.data.local
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 
 object PreferenceKeys {
@@ -40,4 +41,7 @@ object PreferenceKeys {
     val STRETCH_SLOT_NIGHT_ENABLED = booleanPreferencesKey("stretch_slot_night_enabled")
     val LAST_STRETCH_REMINDER_ID = stringPreferencesKey("last_stretch_reminder_id")
     val CATEGORY_PRIORITY_ORDER = stringPreferencesKey("category_priority_order")
+    val TODAY_ACTIVE_DATE = stringPreferencesKey("today_active_date")
+    val TODAY_ACTIVE_STARTED_AT = longPreferencesKey("today_active_started_at")
+    val LAST_USER_ACTIVITY_AT = longPreferencesKey("last_user_activity_at")
 }

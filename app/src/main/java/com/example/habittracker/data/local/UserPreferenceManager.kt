@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -94,6 +95,16 @@ class UserPreferenceManager @Inject constructor(
     val categoryPriorityOrderFlow: Flow<String> = dataStore.data.map {
         it[PreferenceKeys.CATEGORY_PRIORITY_ORDER] ?: DEFAULT_CATEGORY_PRIORITY_ORDER
     }
+    val todayActiveDateFlow: Flow<String?> = dataStore.data.map { it[PreferenceKeys.TODAY_ACTIVE_DATE] }
+    val todayActiveStartedAtFlow: Flow<Long?> = dataStore.data.map { preferences ->
+        val today = LocalDate.now().toString()
+        if (preferences[PreferenceKeys.TODAY_ACTIVE_DATE] == today) {
+            preferences[PreferenceKeys.TODAY_ACTIVE_STARTED_AT]
+        } else {
+            null
+        }
+    }
+    val lastUserActivityAtFlow: Flow<Long?> = dataStore.data.map { it[PreferenceKeys.LAST_USER_ACTIVITY_AT] }
 
     // ── Update functions ─────────────────────────────────────────────────────
 
@@ -217,6 +228,19 @@ class UserPreferenceManager @Inject constructor(
 
     suspend fun updateCategoryPriorityOrder(value: String) {
         dataStore.edit { it[PreferenceKeys.CATEGORY_PRIORITY_ORDER] = value }
+    }
+
+    suspend fun markUserActive(nowMillis: Long = System.currentTimeMillis()) {
+        val today = LocalDate.now().toString()
+        dataStore.edit { preferences ->
+            val activeDate = preferences[PreferenceKeys.TODAY_ACTIVE_DATE]
+            val activeStartedAt = preferences[PreferenceKeys.TODAY_ACTIVE_STARTED_AT]
+            if (activeDate != today || activeStartedAt == null) {
+                preferences[PreferenceKeys.TODAY_ACTIVE_DATE] = today
+                preferences[PreferenceKeys.TODAY_ACTIVE_STARTED_AT] = nowMillis
+            }
+            preferences[PreferenceKeys.LAST_USER_ACTIVITY_AT] = nowMillis
+        }
     }
 
     // ── Utility ──────────────────────────────────────────────────────────────
