@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -44,6 +46,8 @@ class StretchViewModel @Inject constructor(
 
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+
+    private var countdownJob: Job? = null
 
     init {
         // 기존 상태 관찰 유지
@@ -93,7 +97,8 @@ class StretchViewModel @Inject constructor(
                 } else {
                     false
                 }
-                val personalizedGoalCount = userPreferenceManager.todayActiveStartedAtFlow.first()
+                val todayActiveStartedAt = userPreferenceManager.todayActiveStartedAtFlow.first()
+                val personalizedGoalCount = todayActiveStartedAt
                     ?.let { activeStartedAt ->
                         calculatePersonalizedStretchGoalUseCase(
                             activeStartedAtMillis = activeStartedAt,
@@ -108,6 +113,7 @@ class StretchViewModel @Inject constructor(
                     buttonStates = states,
                     todayCount = count,
                     personalizedGoalCount = personalizedGoalCount,
+                    hasTodayActiveStarted = todayActiveStartedAt != null,
                     isHalfGoalAchieved = isHalfGoalAchievedVal
                 ) }
             } catch (e: Exception) {
@@ -146,39 +152,63 @@ class StretchViewModel @Inject constructor(
     fun addStretchRecord(timeSlot: String, bodyParts: List<String>) {
         viewModelScope.launch {
             try {
-                val date = java.time.LocalDate.now().toString()
-                val bodyPartsJson = toJsonBodyParts(bodyParts)
-                stretchRepository.insertStretchRecord(date, timeSlot, bodyPartsJson)
-                markUserActiveUseCase(MarkUserActiveUseCase.SOURCE_STRETCH_LOG)
-                refreshData()
-                WidgetUpdateHelper.updateAllWidgetsSync(context)
-
-                // 50% 이상 달성 축하 알림 체크
-                try {
-                    val amEnabled = userPreferenceManager.stretchSlotAmEnabledFlow.first()
-                    val pmEnabled = userPreferenceManager.stretchSlotPmEnabledFlow.first()
-                    val eveEnabled = userPreferenceManager.stretchSlotEveEnabledFlow.first()
-                    val nightEnabled = userPreferenceManager.stretchSlotNightEnabledFlow.first()
-
-                    val activeSlotsCount = listOf(amEnabled, pmEnabled, eveEnabled, nightEnabled).count { it }
-                    if (activeSlotsCount > 0) {
-                        val status = stretchRepository.getTodayStatus().first()
-                        val completedCount = status.slotsLogged.size
-
-                        if (completedCount >= (activeSlotsCount / 2.0)) {
-                            notificationHelper.sendStretchReminder(
-                                message = "오늘 스트레칭 목표를 달성하셨어요! 몸이 한결 가벼워졌을 거예요 ✨",
-                                trigger = "congrats"
-                            )
-                        }
-                    }
-                } catch (_: Exception) {
-                    // 무시
-                }
+                saveStretchRecord(timeSlot, bodyParts)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
         }
+    }
+
+    fun startStretchCountdown() {
+        if (_uiState.value.isStretching) return
+        countdownJob?.cancel()
+        _uiState.update {
+            it.copy(
+                isStretching = true,
+                countdownSeconds = STRETCH_COUNTDOWN_SECONDS,
+                completionMessage = null,
+            )
+        }
+        countdownJob = viewModelScope.launch {
+            for (remaining in STRETCH_COUNTDOWN_SECONDS downTo 1) {
+                _uiState.update { it.copy(countdownSeconds = remaining) }
+                delay(1_000L)
+            }
+            _uiState.update { it.copy(countdownSeconds = 0) }
+            try {
+                saveStretchRecord(resolveCurrentTimeSlot(), listOf("전신"))
+                _uiState.update {
+                    it.copy(
+                        isStretching = false,
+                        countdownSeconds = STRETCH_COUNTDOWN_SECONDS,
+                        completionMessage = "잘했어요! 방금 스트레칭 1회를 완료했어요. 다음 스트레칭은 약 90분 뒤에 추천할게요.",
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isStretching = false,
+                        countdownSeconds = STRETCH_COUNTDOWN_SECONDS,
+                        errorMessage = e.message,
+                    )
+                }
+            }
+        }
+    }
+
+    fun cancelStretchCountdown() {
+        countdownJob?.cancel()
+        countdownJob = null
+        _uiState.update {
+            it.copy(
+                isStretching = false,
+                countdownSeconds = STRETCH_COUNTDOWN_SECONDS,
+            )
+        }
+    }
+
+    fun clearCompletionMessage() {
+        _uiState.update { it.copy(completionMessage = null) }
     }
 
     fun deleteStretchRecordBySlot(timeSlot: String) {
@@ -221,7 +251,58 @@ class StretchViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
+    private suspend fun saveStretchRecord(timeSlot: String, bodyParts: List<String>) {
+        val date = java.time.LocalDate.now().toString()
+        val bodyPartsJson = toJsonBodyParts(bodyParts)
+        stretchRepository.insertStretchRecord(date, timeSlot, bodyPartsJson)
+        markUserActiveUseCase(MarkUserActiveUseCase.SOURCE_STRETCH_LOG)
+        refreshData()
+        WidgetUpdateHelper.updateAllWidgetsSync(context)
+
+        // 50% 이상 달성 축하 알림 체크
+        try {
+            val amEnabled = userPreferenceManager.stretchSlotAmEnabledFlow.first()
+            val pmEnabled = userPreferenceManager.stretchSlotPmEnabledFlow.first()
+            val eveEnabled = userPreferenceManager.stretchSlotEveEnabledFlow.first()
+            val nightEnabled = userPreferenceManager.stretchSlotNightEnabledFlow.first()
+
+            val activeSlotsCount = listOf(amEnabled, pmEnabled, eveEnabled, nightEnabled).count { it }
+            if (activeSlotsCount > 0) {
+                val status = stretchRepository.getTodayStatus().first()
+                val completedCount = status.slotsLogged.size
+
+                if (completedCount >= (activeSlotsCount / 2.0)) {
+                    notificationHelper.sendStretchReminder(
+                        message = "오늘 스트레칭 목표를 달성하셨어요! 몸이 한결 가벼워졌을 거예요 ✨",
+                        trigger = "congrats"
+                    )
+                }
+            }
+        } catch (_: Exception) {
+            // 무시
+        }
+    }
+
+    private fun resolveCurrentTimeSlot(): String {
+        val hour = java.time.LocalTime.now().hour
+        return when (hour) {
+            in 5..11 -> "아침"
+            in 12..16 -> "점심"
+            in 17..21 -> "저녁"
+            else -> "기타"
+        }
+    }
+
     private fun toJsonBodyParts(parts: List<String>): String {
         return parts.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
+    }
+
+    override fun onCleared() {
+        countdownJob?.cancel()
+        super.onCleared()
+    }
+
+    companion object {
+        private const val STRETCH_COUNTDOWN_SECONDS = 60
     }
 }
