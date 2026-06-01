@@ -10,6 +10,7 @@ import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseC
 import com.example.habittracker.util.NotificationHelper
 import com.example.habittracker.domain.repository.StretchRepository
 import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
+import com.example.habittracker.domain.usecase.stretch.CalculatePersonalizedStretchGoalUseCase
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +32,7 @@ class StretchViewModel @Inject constructor(
     val userPreferenceManager: UserPreferenceManager,
     private val notificationHelper: NotificationHelper,
     private val markUserActiveUseCase: MarkUserActiveUseCase,
+    private val calculatePersonalizedStretchGoalUseCase: CalculatePersonalizedStretchGoalUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StretchUiState())
@@ -91,12 +93,21 @@ class StretchViewModel @Inject constructor(
                 } else {
                     false
                 }
+                val personalizedGoalCount = userPreferenceManager.todayActiveStartedAtFlow.first()
+                    ?.let { activeStartedAt ->
+                        calculatePersonalizedStretchGoalUseCase(
+                            activeStartedAtMillis = activeStartedAt,
+                            bedTime = userPreferenceManager.bedTimeFlow.first(),
+                        )
+                    }
+                    ?: 4
                 
                 _uiState.update { it.copy(
                     loading = false,
                     streak = streakVal,
                     buttonStates = states,
                     todayCount = count,
+                    personalizedGoalCount = personalizedGoalCount,
                     isHalfGoalAchieved = isHalfGoalAchievedVal
                 ) }
             } catch (e: Exception) {

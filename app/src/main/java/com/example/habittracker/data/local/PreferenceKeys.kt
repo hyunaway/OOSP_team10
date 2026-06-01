@@ -40,6 +40,7 @@ object PreferenceKeys {
     val STRETCH_SLOT_EVE_ENABLED = booleanPreferencesKey("stretch_slot_eve_enabled")
     val STRETCH_SLOT_NIGHT_ENABLED = booleanPreferencesKey("stretch_slot_night_enabled")
     val LAST_STRETCH_REMINDER_ID = stringPreferencesKey("last_stretch_reminder_id")
+    val LAST_STRETCH_REMINDER_AT = longPreferencesKey("last_stretch_reminder_at")
     val CATEGORY_PRIORITY_ORDER = stringPreferencesKey("category_priority_order")
     val TODAY_ACTIVE_DATE = stringPreferencesKey("today_active_date")
     val TODAY_ACTIVE_STARTED_AT = longPreferencesKey("today_active_started_at")

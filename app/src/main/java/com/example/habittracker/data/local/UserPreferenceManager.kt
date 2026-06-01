@@ -92,6 +92,7 @@ class UserPreferenceManager @Inject constructor(
     val stretchSlotEveEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_EVE_ENABLED] ?: true }
     val stretchSlotNightEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_NIGHT_ENABLED] ?: true }
     val lastStretchReminderIdFlow: Flow<String> = dataStore.data.map { it[PreferenceKeys.LAST_STRETCH_REMINDER_ID] ?: "" }
+    val lastStretchReminderAtFlow: Flow<Long?> = dataStore.data.map { it[PreferenceKeys.LAST_STRETCH_REMINDER_AT] }
     val categoryPriorityOrderFlow: Flow<String> = dataStore.data.map {
         it[PreferenceKeys.CATEGORY_PRIORITY_ORDER] ?: DEFAULT_CATEGORY_PRIORITY_ORDER
     }
@@ -224,6 +225,10 @@ class UserPreferenceManager @Inject constructor(
     }
     suspend fun updateLastStretchReminderId(value: String) {
         dataStore.edit { it[PreferenceKeys.LAST_STRETCH_REMINDER_ID] = value }
+    }
+
+    suspend fun updateLastStretchReminderAt(value: Long) {
+        dataStore.edit { it[PreferenceKeys.LAST_STRETCH_REMINDER_AT] = value }
     }
 
     suspend fun updateCategoryPriorityOrder(value: String) {
