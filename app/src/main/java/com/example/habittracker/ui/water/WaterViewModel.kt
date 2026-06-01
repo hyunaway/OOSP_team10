@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.domain.repository.WaterRepository
+import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.water.AddWaterLogUseCase
 import com.example.habittracker.domain.usecase.water.GetTodayWaterStatusUseCase
 import com.example.habittracker.domain.usecase.water.GetWaterHistoryUseCase
@@ -26,6 +27,7 @@ class WaterViewModel @Inject constructor(
     private val addWaterLogUseCase: AddWaterLogUseCase,
     private val getWaterHistoryUseCase: GetWaterHistoryUseCase,
     private val waterRepository: WaterRepository,
+    private val markUserActiveUseCase: MarkUserActiveUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WaterUiState())
@@ -45,6 +47,7 @@ class WaterViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 addWaterLogUseCase(amountMl = amountMl, source = "manual")
+                markUserActiveUseCase(MarkUserActiveUseCase.SOURCE_WATER_LOG)
                 WidgetUpdateHelper.updateAllWidgetsSync(context)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }

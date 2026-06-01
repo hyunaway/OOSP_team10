@@ -10,6 +10,7 @@ import com.example.habittracker.util.NotificationHelper
 import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.first
 
 @HiltWorker
 class WaterReminderWorker @AssistedInject constructor(
@@ -22,6 +23,10 @@ class WaterReminderWorker @AssistedInject constructor(
 
     override suspend fun doRemind(): Result {
         return try {
+            if (userPreferenceManager.todayActiveStartedAtFlow.first() == null) {
+                return Result.success()
+            }
+
             val status = checkWaterInterventionNeededUseCase()
             if (!status.isNeedWater) return Result.success()
 

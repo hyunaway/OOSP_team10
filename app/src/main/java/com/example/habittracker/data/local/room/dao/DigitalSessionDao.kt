@@ -16,6 +16,20 @@ abstract class DigitalSessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insert(entity: DigitalSessionEntity): Long
 
+    @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM digital_sessions
+            WHERE appPackage = :appPackage
+              AND startTime = :startTime
+              AND endTime = :endTime
+        )
+    """)
+    abstract suspend fun existsSession(
+        appPackage: String,
+        startTime: Long,
+        endTime: Long,
+    ): Boolean
+
     @Update
     abstract suspend fun update(entity: DigitalSessionEntity): Int
 

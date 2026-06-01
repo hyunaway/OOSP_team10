@@ -1,4 +1,3 @@
-// 경로: com/example/habittracker/ui/digital/DigitalInputScreen.kt
 package com.example.habittracker.ui.digital
 
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -47,7 +47,7 @@ import com.example.habittracker.ui.theme.HabitRadius
 import com.example.habittracker.ui.theme.HabitSpacing
 import com.example.habittracker.ui.theme.HabitTextPrimary
 import com.example.habittracker.ui.theme.HabitTextSecondary
-import androidx.compose.ui.platform.LocalContext
+import com.example.habittracker.util.formatMinutes
 import com.example.habittracker.widget.WidgetUpdateHelper
 
 @Composable
@@ -62,44 +62,57 @@ fun DigitalInputScreen(
     val status = uiState.todayStatus
     val context = LocalContext.current
 
-    val totalMin = status?.totalUsageMinutes ?: 0
+    val totalMinutes = status?.totalUsageMinutes ?: 0
+    val isInterventionMode = interventionId >= 0
+    val isOverDigitalThreshold = totalMinutes >= uiState.digitalInterventionThresholdMinutes
+    val shouldShowActionCard = isInterventionMode || isOverDigitalThreshold
+
     val speech = when {
-        totalMin >= 180 -> "눈이 피곤해 보여요.\n5분만 쉬어갈까요? 📱"
-        totalMin >= 60 -> "디지털 사용이 꽤 많아요.\n잠깐 스트레칭은 어떤가요? 📱"
-        else -> "오늘 디지털 사용이 적당해요!\n이대로 유지해봐요 😊"
+        shouldShowActionCard -> "디지털 사용이 길어졌어요.\n잠깐 쉬어가도 괜찮아요."
+        uiState.selectedDigitalPackages.isEmpty() -> "관리 앱을 선택하면\n기준을 넘었을 때 도와드릴게요."
+        else -> "오늘 디지털 사용이 적당해요!\n이대로 유지해봐요."
     }
 
     CategoryScaffold(
         category = HabitCategoryStyle.DIGITAL,
-        title = "해빗프렌즈",
+        title = "디지털",
         speech = speech,
         avatarUiState = avatarUiState,
         onSettingsClick = { navController.navigate("settings") },
         onReportsClick = { navController.navigate("reports") },
     ) {
-        DigitalStatusCard(status = status)
+        DigitalStatusCard(
+            status = status,
+            thresholdMinutes = uiState.digitalInterventionThresholdMinutes,
+        )
         DigitalManageAppsCard(
             selectedCount = uiState.selectedDigitalPackages.size,
             onClick = { navController.navigate(Routes.DIGITAL_APP_SELECTION) },
         )
-        DigitalActionCard(
-            interventionId = interventionId,
-            onBreak = {
-                if (interventionId >= 0) viewModel.onInterventionAction(interventionId, "break")
-                WidgetUpdateHelper.updateAllWidgetsSync(context)
-                navController.popBackStack()
-            },
-            onStretch = {
-                if (interventionId >= 0) viewModel.onInterventionAction(interventionId, "stretch")
-                WidgetUpdateHelper.updateAllWidgetsSync(context)
-                navController.navigate("stretch")
-            },
-            onContinue = {
-                if (interventionId >= 0) viewModel.onInterventionAction(interventionId, "continue")
-                WidgetUpdateHelper.updateAllWidgetsSync(context)
-                navController.popBackStack()
-            },
-        )
+        if (shouldShowActionCard) {
+            DigitalActionCard(
+                onBreak = {
+                    if (interventionId >= 0) viewModel.onInterventionAction(interventionId, "break")
+                    WidgetUpdateHelper.updateAllWidgetsSync(context)
+                    navController.popBackStack()
+                },
+                onStretch = {
+                    if (interventionId >= 0) viewModel.onInterventionAction(interventionId, "stretch")
+                    WidgetUpdateHelper.updateAllWidgetsSync(context)
+                    navController.navigate("stretch")
+                },
+                onContinue = {
+                    if (interventionId >= 0) viewModel.onInterventionAction(interventionId, "continue")
+                    WidgetUpdateHelper.updateAllWidgetsSync(context)
+                    navController.popBackStack()
+                },
+            )
+        } else {
+            DigitalNormalStateCard(
+                hasSelectedApps = uiState.selectedDigitalPackages.isNotEmpty(),
+                thresholdMinutes = uiState.digitalInterventionThresholdMinutes,
+            )
+        }
         uiState.errorMessage?.let { msg ->
             Text(text = msg, color = MaterialTheme.colorScheme.error)
         }
@@ -149,7 +162,10 @@ private fun DigitalManageAppsCard(
 }
 
 @Composable
-private fun DigitalStatusCard(status: DigitalTodayStatus?) {
+private fun DigitalStatusCard(
+    status: DigitalTodayStatus?,
+    thresholdMinutes: Int,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(HabitRadius.card),
@@ -169,7 +185,7 @@ private fun DigitalStatusCard(status: DigitalTodayStatus?) {
                         modifier = Modifier.size(44.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("📱", style = MaterialTheme.typography.titleLarge)
+                            Text("폰", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                     Spacer(modifier = Modifier.width(HabitSpacing.sm))
@@ -192,7 +208,7 @@ private fun DigitalStatusCard(status: DigitalTodayStatus?) {
                     color = DigitalBackground,
                 ) {
                     Text(
-                        text = "습관 목표 · 하루 2시간 이하",
+                        text = "습관 목표 · 하루 ${formatMinutes(thresholdMinutes)} 이하",
                         modifier = Modifier.padding(
                             horizontal = HabitSpacing.sm,
                             vertical = HabitSpacing.xxs,
@@ -208,10 +224,6 @@ private fun DigitalStatusCard(status: DigitalTodayStatus?) {
             Spacer(modifier = Modifier.height(HabitSpacing.base))
 
             if (status != null) {
-                val hours = status.totalUsageMinutes / 60
-                val mins = status.totalUsageMinutes % 60
-                val timeText = if (hours > 0) "${hours}시간 ${mins}분" else "${mins}분"
-
                 Text(
                     text = "오늘 디지털 기기 사용 시간",
                     style = MaterialTheme.typography.bodySmall,
@@ -219,7 +231,7 @@ private fun DigitalStatusCard(status: DigitalTodayStatus?) {
                 )
                 Spacer(modifier = Modifier.height(HabitSpacing.xs))
                 Text(
-                    text = timeText,
+                    text = formatMinutes(status.totalUsageMinutes),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = DigitalPrimary,
@@ -232,10 +244,10 @@ private fun DigitalStatusCard(status: DigitalTodayStatus?) {
                         horizontalArrangement = Arrangement.spacedBy(HabitSpacing.xl),
                     ) {
                         DigitalStat(label = "최다 앱", value = app)
-                        DigitalStat(label = "세션 수", value = "${status.interventionCount}회")
+                        DigitalStat(label = "개입", value = "${status.interventionCount}회")
                         DigitalStat(
-                            label = "목표 달성",
-                            value = "${(status.reactedCount * 100f / (status.interventionCount.coerceAtLeast(1))).toInt()}%",
+                            label = "반응률",
+                            value = "${(status.reactedCount * 100f / status.interventionCount.coerceAtLeast(1)).toInt()}%",
                         )
                     }
                 }
@@ -264,8 +276,41 @@ private fun DigitalStat(label: String, value: String) {
 }
 
 @Composable
+private fun DigitalNormalStateCard(
+    hasSelectedApps: Boolean,
+    thresholdMinutes: Int,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(HabitRadius.card),
+        colors = CardDefaults.cardColors(containerColor = HabitCardWhite),
+        elevation = CardDefaults.cardElevation(defaultElevation = HabitElevation.card),
+    ) {
+        Column(
+            modifier = Modifier.padding(HabitSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(HabitSpacing.xs),
+        ) {
+            Text(
+                text = "오늘 디지털 사용이 적당해요.",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = HabitTextPrimary,
+            )
+            Text(
+                text = if (hasSelectedApps) {
+                    "기준 시간 ${formatMinutes(thresholdMinutes)}을 넘으면 쉬어갈 수 있게 알려드릴게요."
+                } else {
+                    "관리 앱을 선택하면 사용 시간이 기준을 넘었을 때 개입할 수 있어요."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = HabitTextSecondary,
+            )
+        }
+    }
+}
+
+@Composable
 private fun DigitalActionCard(
-    interventionId: Long,
     onBreak: () -> Unit,
     onStretch: () -> Unit,
     onContinue: () -> Unit,
@@ -292,7 +337,7 @@ private fun DigitalActionCard(
                 shape = RoundedCornerShape(HabitRadius.button),
                 colors = ButtonDefaults.buttonColors(containerColor = DigitalPrimary),
             ) {
-                Text("⏸ 5분 쉬기", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("5분 쉬기", color = Color.White, fontWeight = FontWeight.Bold)
             }
             Button(
                 onClick = onStretch,
@@ -300,7 +345,7 @@ private fun DigitalActionCard(
                 shape = RoundedCornerShape(HabitRadius.button),
                 colors = ButtonDefaults.buttonColors(containerColor = DigitalContainer),
             ) {
-                Text("🧘 스트레칭하기", color = DigitalPrimary, fontWeight = FontWeight.Bold)
+                Text("스트레칭하기", color = DigitalPrimary, fontWeight = FontWeight.Bold)
             }
             OutlinedButton(
                 onClick = onContinue,

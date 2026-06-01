@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.Flow
 interface MealRepository {
     fun getTodayLogs(): Flow<List<MealLogEntity>>
     fun getTodayStatus(): Flow<MealTodayStatus>
+    suspend fun getLogsByMealDate(mealDate: String): List<MealLogEntity>
+    fun observeLogsByMealDate(mealDate: String): Flow<List<MealLogEntity>>
+    fun observeLogsForMealScreen(todayDate: String, previousDate: String): Flow<List<MealLogEntity>>
     suspend fun addLog(type: MealType, timestamp: Long, isLateNight: Boolean, viaDeliveryApp: Boolean, source: String, mealDate: String, recordedTime: String, inputMethod: String = "", triggerType: String = "")
     suspend fun updateLog(id: Long, type: MealType)
     suspend fun deleteLog(id: Long)

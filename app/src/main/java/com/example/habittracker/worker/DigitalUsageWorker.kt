@@ -11,8 +11,10 @@ import com.example.habittracker.data.usage.UsageStatsHelper
 import com.example.habittracker.domain.usecase.digital.GetLatestDigitalInterventionTimestampUseCase
 import com.example.habittracker.domain.usecase.digital.GetTodayDigitalStatusUseCase
 import com.example.habittracker.domain.usecase.digital.LogDigitalInterventionUseCase
+import com.example.habittracker.domain.usecase.digital.ResolveDigitalInterventionActionUseCase
 import com.example.habittracker.domain.usecase.digital.SaveDigitalSessionUseCase
 import com.example.habittracker.util.NotificationHelper
+import com.example.habittracker.util.formatMinutes
 import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -29,6 +31,7 @@ class DigitalUsageWorker @AssistedInject constructor(
     private val getTodayDigitalStatusUseCase: GetTodayDigitalStatusUseCase,
     private val getLatestDigitalInterventionTimestampUseCase: GetLatestDigitalInterventionTimestampUseCase,
     private val logDigitalInterventionUseCase: LogDigitalInterventionUseCase,
+    private val resolveDigitalInterventionActionUseCase: ResolveDigitalInterventionActionUseCase,
     private val notificationHelper: NotificationHelper,
 ) : CoroutineWorker(context, params) {
 
@@ -92,16 +95,21 @@ class DigitalUsageWorker @AssistedInject constructor(
             timestamp = now,
             actionType = ACTION_TYPE_NOTIFICATION,
         )
+        val recommendedAction = resolveDigitalInterventionActionUseCase()
         notificationHelper.sendDigitalIntervention(
-            message = buildInterventionMessage(target.key, target.value),
+            message = buildInterventionMessage(target.key, target.value, recommendedAction.message),
             appPackage = target.key,
             interventionId = interventionId,
         )
     }
 
-    private fun buildInterventionMessage(appPackage: String, totalMinutes: Int): String {
+    private fun buildInterventionMessage(
+        appPackage: String,
+        totalMinutes: Int,
+        recommendedMessage: String,
+    ): String {
         val appName = resolveAppName(appPackage)
-        return "${appName}를 벌써 ${totalMinutes}분 사용했어요. 잠깐 눈을 쉬어볼까요?"
+        return "${appName}를 ${formatMinutes(totalMinutes)} 사용했어요. $recommendedMessage"
     }
 
     private fun resolveAppName(appPackage: String): String {

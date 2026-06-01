@@ -132,26 +132,17 @@ fun StretchInputScreen(
         // 수정 8: 진행률 위젯 (퍼센트% 라벨 포함)
         StretchProgressWidget(
             todayCount = uiState.todayCount,
+            personalizedGoalCount = uiState.personalizedGoalCount,
+            hasTodayActiveStarted = uiState.hasTodayActiveStarted,
             isHalfGoalAchieved = uiState.isHalfGoalAchieved
         )
         
         StretchStatusCard(uiState = uiState)
         
-        StretchSlotsCard(
+        StretchGuideCard(
             uiState = uiState,
             viewModel = viewModel,
-            userPreferenceManager = viewModel.userPreferenceManager
         )
-        
-        // 부위 선택 그리드를 지우고 "나중에" 버튼만 하단에 배치
-        Spacer(modifier = Modifier.height(HabitSpacing.sm))
-        OutlinedButton(
-            onClick = { navController.popBackStack() },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(HabitRadius.button),
-        ) {
-            Text("나중에", color = HabitTextSecondary)
-        }
 
         uiState.errorMessage?.let { msg ->
             Text(text = msg, color = MaterialTheme.colorScheme.error)
@@ -161,15 +152,21 @@ fun StretchInputScreen(
 
 // 수정 8 & 수정 3 요건: 진행률 퍼센트(%) 위젯 구현
 @Composable
-private fun StretchProgressWidget(todayCount: Int, isHalfGoalAchieved: Boolean) {
-    val progressTarget = (todayCount * 0.25f).coerceIn(0f, 1f)
+private fun StretchProgressWidget(
+    todayCount: Int,
+    personalizedGoalCount: Int,
+    hasTodayActiveStarted: Boolean,
+    isHalfGoalAchieved: Boolean,
+) {
+    val safeGoal = personalizedGoalCount.coerceAtLeast(1)
+    val progressTarget = (todayCount / safeGoal.toFloat()).coerceIn(0f, 1f)
     val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
         targetValue = progressTarget,
         animationSpec = androidx.compose.animation.core.tween(durationMillis = 500),
         label = "stretchProgressAnimation"
     )
     val percentage = (progressTarget * 100).toInt()
-    val isGoalAchieved = todayCount >= 4
+    val isGoalAchieved = todayCount >= safeGoal
     
     Card(
         modifier = Modifier.fillMaxWidth().padding(bottom = HabitSpacing.sm),
@@ -188,10 +185,24 @@ private fun StretchProgressWidget(todayCount: Int, isHalfGoalAchieved: Boolean) 
                 )
             }
             Text(
-                text = if (isGoalAchieved) "오늘 목표 달성! 🎉 ($percentage%)" else "오늘 스트레칭 $todayCount / 4회 ($percentage%)",
+                text = if (isGoalAchieved) {
+                    "오늘 목표 달성! 🎉 ($percentage%)"
+                } else {
+                    "오늘 스트레칭 $todayCount / ${safeGoal}회 ($percentage%)"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = if (isGoalAchieved) StretchPrimary else HabitTextPrimary
+            )
+            Spacer(modifier = Modifier.height(HabitSpacing.xxs))
+            Text(
+                text = when {
+                    !hasTodayActiveStarted -> "오늘 활동이 시작되면 목표가 계산돼요."
+                    safeGoal < 4 -> "오늘 남은 활동 시간에 맞춰 목표를 조정했어요."
+                    else -> "활동 시작 기준으로 조정된 목표입니다."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = HabitTextSecondary,
             )
             Spacer(modifier = Modifier.height(HabitSpacing.xs))
             LinearProgressIndicator(
@@ -266,7 +277,7 @@ private fun StretchStatusCard(uiState: StretchUiState) {
                             color = HabitTextSecondary,
                         )
                         Text(
-                            text = "오늘 ${todayCount}회 완료",
+                            text = "현재 완료 $todayCount / ${uiState.personalizedGoalCount.coerceAtLeast(1)}회",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = StretchPrimary,
@@ -310,6 +321,148 @@ private fun StretchStatusCard(uiState: StretchUiState) {
             }
         }
     }
+}
+
+@Composable
+private fun StretchGuideCard(
+    uiState: StretchUiState,
+    viewModel: StretchViewModel,
+) {
+    val guideSteps = listOf(
+        "목을 천천히 좌우로 기울여요.",
+        "어깨를 뒤로 크게 돌려요.",
+        "양손을 깍지 끼고 위로 뻗어요.",
+        "허리를 가볍게 펴고 숨을 고르세요.",
+    )
+    val canStart = uiState.todayCount < 4
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(HabitRadius.card),
+        colors = CardDefaults.cardColors(containerColor = HabitCardWhite),
+        elevation = CardDefaults.cardElevation(defaultElevation = HabitElevation.card),
+    ) {
+        Column(modifier = Modifier.padding(HabitSpacing.lg)) {
+            Text(
+                text = if (uiState.isStretching) "1분 스트레칭 중" else "스트레칭을 시작할까요?",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = HabitTextPrimary,
+            )
+            Spacer(modifier = Modifier.height(HabitSpacing.xs))
+            Text(
+                text = if (uiState.isStretching) {
+                    "아래 순서대로 천천히 몸을 풀어주세요."
+                } else {
+                    "가이드와 카운트다운을 마치면 오늘 스트레칭 1회로 기록돼요."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = HabitTextSecondary,
+            )
+
+            Spacer(modifier = Modifier.height(HabitSpacing.base))
+
+            uiState.completionMessage?.let { message ->
+                Surface(
+                    shape = RoundedCornerShape(HabitRadius.card),
+                    color = StretchBackground,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(HabitSpacing.base)) {
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = StretchPrimary,
+                        )
+                        Spacer(modifier = Modifier.height(HabitSpacing.xs))
+                        OutlinedButton(
+                            onClick = { viewModel.clearCompletionMessage() },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(HabitRadius.button),
+                        ) {
+                            Text("확인", color = StretchPrimary)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(HabitSpacing.base))
+            }
+
+            if (uiState.isStretching) {
+                Text(
+                    text = formatCountdown(uiState.countdownSeconds),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = StretchPrimary,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.sm))
+                LinearProgressIndicator(
+                    progress = { (uiState.countdownSeconds / 60f).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(8.dp),
+                    color = StretchPrimary,
+                    trackColor = StretchBackground,
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.base))
+                guideSteps.forEachIndexed { index, step ->
+                    Text(
+                        text = "${index + 1}. $step",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = HabitTextPrimary,
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.height(HabitSpacing.base))
+                OutlinedButton(
+                    onClick = { viewModel.cancelStretchCountdown() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(HabitRadius.button),
+                ) {
+                    Text("그만하기", color = HabitTextSecondary)
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(HabitRadius.card),
+                    color = StretchBackground.copy(alpha = 0.7f),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(HabitSpacing.base)) {
+                        Text(
+                            text = "개인화 알림 사용 중",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = StretchPrimary,
+                        )
+                        Text(
+                            text = "고정 시간 슬롯 대신 오늘 활동 시작 시각과 마지막 스트레칭 시간을 기준으로 알려드려요.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = HabitTextSecondary,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(HabitSpacing.base))
+                Button(
+                    onClick = { viewModel.startStretchCountdown() },
+                    enabled = canStart,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(HabitRadius.button),
+                    colors = ButtonDefaults.buttonColors(containerColor = StretchPrimary),
+                ) {
+                    Text(
+                        text = if (canStart) "1분 스트레칭 시작하기" else "오늘 스트레칭 목표 완료",
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatCountdown(seconds: Int): String {
+    val safeSeconds = seconds.coerceAtLeast(0)
+    val minute = safeSeconds / 60
+    val second = safeSeconds % 60
+    return "%d:%02d".format(minute, second)
 }
 
 @Composable

@@ -51,6 +51,10 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
             ACTION_ADD_WATER_250 -> {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
+                        val ep = EntryPointAccessors.fromApplication(
+                            context.applicationContext,
+                            WidgetDependenciesEntryPoint::class.java,
+                        )
                         AppDatabase.getInstance(context).waterDao().insert(
                             WaterLogEntity(
                                 timestamp = System.currentTimeMillis(),
@@ -58,6 +62,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                                 source = "widget",
                             )
                         )
+                        ep.markUserActiveUseCase()("widget_water_log")
                         WidgetUpdateHelper.updateAllWidgets(context)
                     } catch (_: Exception) {}
                 }
@@ -80,6 +85,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                             timeSlot = timeSlot,
                             bodyParts = "[\"전신\"]",
                         )
+                        ep.markUserActiveUseCase()("widget_stretch_log")
                         WidgetUpdateHelper.updateAllWidgets(context)
                     } catch (_: Exception) {}
                 }
@@ -92,6 +98,10 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                     HabitWidgetRemoteViewsFactory.ACTION_ADD_WATER -> {
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
+                                val ep = EntryPointAccessors.fromApplication(
+                                    context.applicationContext,
+                                    WidgetDependenciesEntryPoint::class.java,
+                                )
                                 AppDatabase.getInstance(context).waterDao().insert(
                                     WaterLogEntity(
                                         timestamp = System.currentTimeMillis(),
@@ -99,6 +109,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                                         source = "widget",
                                     )
                                 )
+                                ep.markUserActiveUseCase()("widget_water_log")
                                 WidgetUpdateHelper.updateAllWidgets(context)
                             } catch (_: Exception) {}
                         }
@@ -121,6 +132,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                                     timeSlot = timeSlot,
                                     bodyParts = "[\"전신\"]",
                                 )
+                                ep.markUserActiveUseCase()("widget_stretch_log")
                                 WidgetUpdateHelper.updateAllWidgets(context)
                             } catch (_: Exception) {}
                         }

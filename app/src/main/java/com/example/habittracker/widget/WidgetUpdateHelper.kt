@@ -11,6 +11,7 @@ import com.example.habittracker.R
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.domain.model.WaterShortageLevel
 import com.example.habittracker.domain.repository.StretchRepository
+import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.digital.GetTodayDigitalStatusUseCase
 import com.example.habittracker.domain.usecase.meal.GetTodayMealStatusUseCase
 import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseCase
@@ -292,4 +293,5 @@ interface WidgetDependenciesEntryPoint {
     fun getTodayStretchStatusUseCase(): GetTodayStretchStatusUseCase
     fun stretchRepository(): StretchRepository
     fun userPreferenceManager(): UserPreferenceManager
+    fun markUserActiveUseCase(): MarkUserActiveUseCase
 }
