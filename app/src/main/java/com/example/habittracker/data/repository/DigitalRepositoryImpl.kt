@@ -44,6 +44,8 @@ class DigitalRepositoryImpl @Inject constructor(
         endTime: Long,
         durationMinutes: Int,
     ) {
+        if (digitalSessionDao.existsSession(appPackage, startTime, endTime)) return
+
         digitalSessionDao.insert(
             DigitalSessionEntity(
                 appPackage = appPackage,

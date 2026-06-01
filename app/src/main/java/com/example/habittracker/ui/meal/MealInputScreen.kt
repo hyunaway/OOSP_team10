@@ -69,7 +69,7 @@ fun MealInputScreen(
 
     var showCancelDialog by remember { mutableStateOf(false) }
     var showMissedMealDialog by remember { mutableStateOf(false) }
-    val latestLog = uiState.todayLogs.firstOrNull()
+    val latestLog = uiState.displayLogs.firstOrNull()
     val visibleMessage = uiState.transientMessage
         ?: uiState.classificationMessage
         ?: uiState.dailyStatusMessage
@@ -170,7 +170,7 @@ fun MealInputScreen(
     ) {
         MealStatusCard(status = status, dailyStatusMessage = uiState.dailyStatusMessage)
         MealQuickLogCard(
-            todayLogs = uiState.todayLogs,
+            todayLogs = uiState.displayLogs,
             logsExpanded = uiState.mealLogsExpanded,
             latestLog = latestLog,
             onRecordMeal = { viewModel.onAutoMealRecordClick() },

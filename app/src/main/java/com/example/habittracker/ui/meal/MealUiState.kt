@@ -11,6 +11,7 @@ data class MealUiState(
     val errorMessage: String? = null,
     val todayStatus: MealTodayStatus? = null,
     val todayLogs: List<MealLogEntity> = emptyList(),
+    val displayLogs: List<MealLogEntity> = emptyList(),
     val history: List<DailyMealSummary> = emptyList(),
     val classificationMessage: String? = null,
     val dailyStatusMessage: String? = null,

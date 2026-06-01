@@ -11,6 +11,7 @@ import com.example.habittracker.domain.usecase.meal.AddMealLogUseCase
 import com.example.habittracker.domain.usecase.meal.GetMealHistoryUseCase
 import com.example.habittracker.domain.usecase.meal.GetTodayMealStatusUseCase
 import com.example.habittracker.domain.usecase.meal.MealClassifier
+import com.example.habittracker.domain.usecase.meal.MealDailyStatus
 import com.example.habittracker.domain.usecase.meal.MealDailyStatusCalculator
 import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,11 +57,13 @@ class MealViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val today = LocalDate.now().toString()
+            val previousDate = LocalDate.now().minusDays(1).toString()
             combine(
                 mealRepository.observeLogsByMealDate(today),
+                mealRepository.observeLogsForMealScreen(today, previousDate),
                 userPreferenceManager.wakeTimeFlow,
                 userPreferenceManager.bedTimeFlow,
-            ) { logs, wakeTime, bedTime ->
+            ) { logs, displayLogs, wakeTime, bedTime ->
                 val wakeMinutes = parseTimeToMinutes(wakeTime, DEFAULT_WAKE_TIME_MINUTES)
                 val bedMinutes = parseTimeToMinutes(
                     value = bedTime,
@@ -73,16 +76,17 @@ class MealViewModel @Inject constructor(
                     wakeTimeMinutes = wakeMinutes,
                     bedTimeMinutes = bedMinutes,
                 )
-                Triple(logs, dailyStatus, dailyStatus.message)
+                MealScreenLogState(logs, displayLogs, dailyStatus, dailyStatus.message)
             }
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
-                .collect { (logs, dailyStatus, message) ->
+                .collect { state ->
                     _uiState.update {
                         it.copy(
                             loading = false,
-                            todayLogs = logs,
-                            dailyMealStatus = dailyStatus,
-                            dailyStatusMessage = message,
+                            todayLogs = state.todayLogs,
+                            displayLogs = state.displayLogs,
+                            dailyMealStatus = state.dailyStatus,
+                            dailyStatusMessage = state.message,
                         )
                     }
                 }
@@ -160,7 +164,7 @@ class MealViewModel @Inject constructor(
     }
 
     fun cancelLatestMealLog() {
-        val latestLog = _uiState.value.todayLogs.firstOrNull()
+        val latestLog = _uiState.value.displayLogs.firstOrNull()
         if (latestLog == null) {
             _uiState.update { it.copy(transientMessage = "취소할 식사 기록이 없어요.", classificationMessage = null) }
             return
@@ -283,6 +287,7 @@ class MealViewModel @Inject constructor(
 
     fun mealLabel(log: MealLogEntity): String =
         when {
+            (log.isLateNight || log.type == MealType.LATE_NIGHT) && log.mealDate != LocalDate.now().toString() -> "야식 (전날)"
             log.isLateNight || log.type == MealType.LATE_NIGHT -> "야식"
             log.type == MealType.BREAKFAST -> "아침"
             log.type == MealType.LUNCH -> "점심"
@@ -315,3 +320,10 @@ class MealViewModel @Inject constructor(
         private val TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     }
 }
+
+private data class MealScreenLogState(
+    val todayLogs: List<MealLogEntity>,
+    val displayLogs: List<MealLogEntity>,
+    val dailyStatus: MealDailyStatus,
+    val message: String,
+)
