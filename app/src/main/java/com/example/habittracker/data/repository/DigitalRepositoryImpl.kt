@@ -9,33 +9,54 @@ import com.example.habittracker.domain.model.DailyDigitalSummary
 import com.example.habittracker.domain.model.DigitalPatternResult
 import com.example.habittracker.domain.model.DigitalTodayStatus
 import com.example.habittracker.domain.repository.DigitalRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Singleton
 class DigitalRepositoryImpl @Inject constructor(
     private val digitalSessionDao: DigitalSessionDao,
     private val digitalInterventionLogDao: DigitalInterventionLogDao,
 ) : DigitalRepository {
 
+    private fun getCurrentDayStartFlow(): Flow<Long> = flow {
+        while (true) {
+            emit(getTodayStartMillis())
+            delay(30000)
+        }
+    }
+
+    private fun getTodayStartMillis(): Long = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
     override fun getTodayStatus(): Flow<DigitalTodayStatus> =
-        combine(
-            digitalSessionDao.getTodaySessionsByApp(),
-            digitalInterventionLogDao.getTodayInterventions(),
-        ) { sessions, interventions ->
-            DigitalTodayStatus(
-                totalUsageMinutes = sessions.sumOf { it.total },
-                appUsageMap = sessions.associate { it.appPackage to it.total },
-                interventionCount = interventions.size,
-                reactedCount = interventions.count { it.reacted },
-                topApp = sessions.maxByOrNull { it.total }?.appPackage,
-            )
+        getCurrentDayStartFlow().flatMapLatest { start ->
+            combine(
+                digitalSessionDao.getSessionsByAppBetween(start, Long.MAX_VALUE),
+                digitalInterventionLogDao.getInterventionsBetween(start, Long.MAX_VALUE),
+            ) { sessions, interventions ->
+                DigitalTodayStatus(
+                    totalUsageMinutes = sessions.sumOf { it.total },
+                    appUsageMap = sessions.associate { it.appPackage to it.total },
+                    interventionCount = interventions.size,
+                    reactedCount = interventions.count { it.reacted },
+                    topApp = sessions.maxByOrNull { it.total }?.appPackage,
+                )
+            }
         }
 
     override suspend fun saveSession(

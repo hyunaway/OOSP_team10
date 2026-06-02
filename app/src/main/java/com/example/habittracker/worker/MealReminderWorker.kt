@@ -32,7 +32,13 @@ class MealReminderWorker @AssistedInject constructor(
             val minute = calendar.get(Calendar.MINUTE)
             
             val todayStr = getTodayDateString()
-            val logs = mealDao.getTodayLogs().first()
+            val todayStart = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val logs = mealDao.getLogsBetween(todayStart, Long.MAX_VALUE).first()
             val breakfastLogged = logs.any { it.type == MealType.BREAKFAST }
             val lunchLogged = logs.any { it.type == MealType.LUNCH }
             val dinnerLogged = logs.any { it.type == MealType.DINNER }

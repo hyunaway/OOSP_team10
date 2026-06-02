@@ -1,5 +1,6 @@
 package com.example.habittracker.data.local.room.dao
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -42,13 +43,33 @@ abstract class StretchDao {
         return getTodayStretchCount(date) >= 4
     }
 
+    @Query("""
+        SELECT date, COUNT(*) as count 
+        FROM stretching_records 
+        WHERE date <= :today 
+        GROUP BY date 
+        ORDER BY date DESC
+    """)
+    abstract suspend fun getDailyStretchCounts(today: String): List<DailyStretchCount>
+
     suspend fun calculateStreak(today: String): Int {
+        val dailyCounts = getDailyStretchCounts(today).associate { it.date to it.count }
         var streak = 0
         var currentDate = java.time.LocalDate.parse(today)
-        while (isGoalAchieved(currentDate.toString())) {
-            streak++
-            currentDate = currentDate.minusDays(1)
+        while (true) {
+            val count = dailyCounts[currentDate.toString()] ?: 0
+            if (count >= 4) {
+                streak++
+                currentDate = currentDate.minusDays(1)
+            } else {
+                break
+            }
         }
         return streak
     }
 }
+
+data class DailyStretchCount(
+    @ColumnInfo(name = "date") val date: String,
+    @ColumnInfo(name = "count") val count: Int
+)

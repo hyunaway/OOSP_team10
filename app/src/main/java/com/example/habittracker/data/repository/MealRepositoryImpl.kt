@@ -8,25 +8,46 @@ import com.example.habittracker.domain.model.DailyMealSummary
 import com.example.habittracker.domain.model.MealPatternResult
 import com.example.habittracker.domain.model.MealTodayStatus
 import com.example.habittracker.domain.repository.MealRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Singleton
 class MealRepositoryImpl @Inject constructor(
     private val mealDao: MealDao,
 ) : MealRepository {
 
+    private fun getCurrentDayStartFlow(): Flow<Long> = flow {
+        while (true) {
+            emit(getTodayStartMillis())
+            delay(30000)
+        }
+    }
+
+    private fun getTodayStartMillis(): Long = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
     override fun getTodayLogs(): Flow<List<MealLogEntity>> =
-        mealDao.getTodayLogs()
+        getCurrentDayStartFlow().flatMapLatest { start ->
+            mealDao.getLogsBetween(start, Long.MAX_VALUE)
+        }
 
     override fun getTodayStatus(): Flow<MealTodayStatus> =
-        mealDao.getTodayLogs().map { logs ->
+        getTodayLogs().map { logs ->
             MealTodayStatus(
                 breakfastLogged = logs.any { it.type == MealType.BREAKFAST },
                 lunchLogged = logs.any { it.type == MealType.LUNCH },
@@ -73,7 +94,7 @@ class MealRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateLog(id: Long, type: MealType) {
-        mealDao.updateTypeById(id, type.name)
+        mealDao.updateTypeById(id, type)
     }
 
     override suspend fun deleteLog(id: Long) {
