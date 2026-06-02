@@ -30,7 +30,7 @@ import com.example.habittracker.data.local.room.dao.WaterDao
         StretchingRecord::class,
         NotificationActionLogEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 @TypeConverters(AppTypeConverters::class)
@@ -54,7 +54,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "habit_tracker.db",
                 )
-                .addMigrations(MIGRATION_3_4)
+                .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
                 .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }
@@ -93,6 +93,18 @@ abstract class AppDatabase : RoomDatabase() {
                 """.trimIndent())
 
                 db.execSQL("DROP TABLE IF EXISTS stretch_logs")
+            }
+        }
+
+        val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_water_logs_timestamp ON water_logs(timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_meal_logs_timestamp ON meal_logs(timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_meal_logs_mealDate ON meal_logs(mealDate)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_digital_sessions_startTime ON digital_sessions(startTime)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_digital_interventions_timestamp ON digital_interventions(timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stretching_records_date ON stretching_records(date)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_notification_action_logs_shownAt ON notification_action_logs(shownAt)")
             }
         }
     }

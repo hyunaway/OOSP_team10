@@ -1,10 +1,13 @@
-// 경로: com/example/habittracker/data/entity/NotificationActionLogEntity.kt
 package com.example.habittracker.data.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "notification_action_logs")
+@Entity(
+    tableName = "notification_action_logs",
+    indices = [Index(value = ["shownAt"])]
+)
 data class NotificationActionLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val category: String,

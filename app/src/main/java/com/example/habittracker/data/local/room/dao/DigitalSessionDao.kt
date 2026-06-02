@@ -36,8 +36,7 @@ abstract class DigitalSessionDao {
     @Query("DELETE FROM digital_sessions WHERE id = :id")
     abstract suspend fun deleteById(id: Long): Int
 
-    fun getTodaySessionsByApp(): Flow<List<AppDurationSum>> =
-        getSessionsByAppBetween(todayStart(), Long.MAX_VALUE)
+
 
     @Query("SELECT * FROM digital_sessions WHERE startTime BETWEEN :start AND :end ORDER BY startTime DESC")
     abstract fun getSessionsBetween(start: Long, end: Long): Flow<List<DigitalSessionEntity>>
@@ -67,12 +66,6 @@ abstract class DigitalSessionDao {
         WHERE startTime BETWEEN :start AND :end
         GROUP BY appPackage
     """)
-    protected abstract fun getSessionsByAppBetween(start: Long, end: Long): Flow<List<AppDurationSum>>
+    abstract fun getSessionsByAppBetween(start: Long, end: Long): Flow<List<AppDurationSum>>
 
-    private fun todayStart(): Long = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
 }

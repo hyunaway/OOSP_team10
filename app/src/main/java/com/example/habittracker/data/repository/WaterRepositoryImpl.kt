@@ -10,31 +10,55 @@ import com.example.habittracker.domain.model.WaterTodayStatus
 import com.example.habittracker.domain.repository.WaterRepository
 import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Singleton
 class WaterRepositoryImpl @Inject constructor(
     private val waterDao: WaterDao,
     @ApplicationContext private val context: Context,
 ) : WaterRepository {
 
+    private fun getCurrentDayStartFlow(): Flow<Long> = flow {
+        while (true) {
+            emit(getTodayStartMillis())
+            delay(30000)
+        }
+    }
+
+    private fun getTodayStartMillis(): Long = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
     override fun getTodayStatus(): Flow<WaterTodayStatus> =
-        combine(waterDao.getTodayLogs(), waterDao.getTodayTotal()) { logs, totalMl ->
-            val total = totalMl ?: 0
-            WaterTodayStatus(
-                totalMl = total,
-                goalMl = WATER_GOAL_ML,
-                achievementRate = if (WATER_GOAL_ML > 0) total.toFloat() / WATER_GOAL_ML else 0f,
-                lastDrankAt = logs.firstOrNull()?.timestamp,
-                interventionCount = 0,
-            )
+        getCurrentDayStartFlow().flatMapLatest { start ->
+            combine(
+                waterDao.getLogsBetween(start, Long.MAX_VALUE),
+                waterDao.getTotalBetween(start, Long.MAX_VALUE)
+            ) { logs, totalMl ->
+                val total = totalMl ?: 0
+                WaterTodayStatus(
+                    totalMl = total,
+                    goalMl = WATER_GOAL_ML,
+                    achievementRate = if (WATER_GOAL_ML > 0) total.toFloat() / WATER_GOAL_ML else 0f,
+                    lastDrankAt = logs.firstOrNull()?.timestamp,
+                    interventionCount = 0,
+                )
+            }
         }
 
     override suspend fun addLog(amountMl: Int, source: String, timestamp: Long) {
