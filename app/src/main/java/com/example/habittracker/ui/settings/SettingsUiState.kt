@@ -18,5 +18,6 @@ data class SettingsUiState(
     val preferredMessageTone: String = UserPreferenceManager.DEFAULT_PREFERRED_MESSAGE_TONE,
     val avatarGender: AvatarGender = AvatarGender.MALE,
     val userName: String = UserPreferenceManager.DEFAULT_USER_NAME,
+    val categoryPriorityOrder: List<String> = listOf("MEAL", "WATER", "DIGITAL", "STRETCH"),
     val isSaved: Boolean = false,
 )

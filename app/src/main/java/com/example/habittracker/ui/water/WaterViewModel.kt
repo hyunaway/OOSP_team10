@@ -1,13 +1,17 @@
 // 경로: com/example/habittracker/ui/water/WaterViewModel.kt
 package com.example.habittracker.ui.water
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.domain.repository.WaterRepository
+import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.water.AddWaterLogUseCase
 import com.example.habittracker.domain.usecase.water.GetTodayWaterStatusUseCase
 import com.example.habittracker.domain.usecase.water.GetWaterHistoryUseCase
+import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,10 +22,12 @@ import javax.inject.Inject
 
 @HiltViewModel
 class WaterViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val getTodayWaterStatusUseCase: GetTodayWaterStatusUseCase,
     private val addWaterLogUseCase: AddWaterLogUseCase,
     private val getWaterHistoryUseCase: GetWaterHistoryUseCase,
     private val waterRepository: WaterRepository,
+    private val markUserActiveUseCase: MarkUserActiveUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WaterUiState())
@@ -41,6 +47,8 @@ class WaterViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 addWaterLogUseCase(amountMl = amountMl, source = "manual")
+                markUserActiveUseCase(MarkUserActiveUseCase.SOURCE_WATER_LOG)
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
@@ -51,6 +59,7 @@ class WaterViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 waterRepository.deleteLog(id)
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }

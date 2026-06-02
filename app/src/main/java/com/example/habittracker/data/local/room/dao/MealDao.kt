@@ -25,6 +25,23 @@ abstract class MealDao {
     @Query("SELECT * FROM meal_logs WHERE mealDate = :mealDate")
     abstract suspend fun getLogsByMealDate(mealDate: String): List<MealLogEntity>
 
+    @Query("SELECT * FROM meal_logs WHERE mealDate = :mealDate ORDER BY timestamp DESC")
+    abstract fun observeLogsByMealDate(mealDate: String): Flow<List<MealLogEntity>>
+
+    @Query("""
+        SELECT * FROM meal_logs
+        WHERE mealDate = :todayDate
+           OR (
+                mealDate = :previousDate
+                AND (isLateNight = 1 OR type = 'LATE_NIGHT')
+           )
+        ORDER BY timestamp DESC
+    """)
+    abstract fun observeLogsForMealScreen(
+        todayDate: String,
+        previousDate: String,
+    ): Flow<List<MealLogEntity>>
+
     fun getTodayLogs(): Flow<List<MealLogEntity>> = getLogsBetween(todayStart(), Long.MAX_VALUE)
 
     @Query("SELECT COUNT(*) FROM meal_logs WHERE isLateNight = 1 AND timestamp BETWEEN :start AND :end")

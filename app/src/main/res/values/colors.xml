@@ -7,4 +7,11 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Category primary colors (mirrors Color.kt values) -->
+    <color name="meal_primary">#FFFF9A3C</color>
+    <color name="water_primary">#FF42A8E0</color>
+    <color name="digital_primary">#FF8B75D7</color>
+    <color name="stretch_primary">#FF5BAE6E</color>
+    <color name="status_inactive">#FFD6D6D6</color>
 </resources>

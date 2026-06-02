@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -91,6 +92,20 @@ class UserPreferenceManager @Inject constructor(
     val stretchSlotEveEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_EVE_ENABLED] ?: true }
     val stretchSlotNightEnabledFlow: Flow<Boolean> = dataStore.data.map { it[PreferenceKeys.STRETCH_SLOT_NIGHT_ENABLED] ?: true }
     val lastStretchReminderIdFlow: Flow<String> = dataStore.data.map { it[PreferenceKeys.LAST_STRETCH_REMINDER_ID] ?: "" }
+    val lastStretchReminderAtFlow: Flow<Long?> = dataStore.data.map { it[PreferenceKeys.LAST_STRETCH_REMINDER_AT] }
+    val categoryPriorityOrderFlow: Flow<String> = dataStore.data.map {
+        it[PreferenceKeys.CATEGORY_PRIORITY_ORDER] ?: DEFAULT_CATEGORY_PRIORITY_ORDER
+    }
+    val todayActiveDateFlow: Flow<String?> = dataStore.data.map { it[PreferenceKeys.TODAY_ACTIVE_DATE] }
+    val todayActiveStartedAtFlow: Flow<Long?> = dataStore.data.map { preferences ->
+        val today = LocalDate.now().toString()
+        if (preferences[PreferenceKeys.TODAY_ACTIVE_DATE] == today) {
+            preferences[PreferenceKeys.TODAY_ACTIVE_STARTED_AT]
+        } else {
+            null
+        }
+    }
+    val lastUserActivityAtFlow: Flow<Long?> = dataStore.data.map { it[PreferenceKeys.LAST_USER_ACTIVITY_AT] }
 
     // ── Update functions ─────────────────────────────────────────────────────
 
@@ -212,6 +227,27 @@ class UserPreferenceManager @Inject constructor(
         dataStore.edit { it[PreferenceKeys.LAST_STRETCH_REMINDER_ID] = value }
     }
 
+    suspend fun updateLastStretchReminderAt(value: Long) {
+        dataStore.edit { it[PreferenceKeys.LAST_STRETCH_REMINDER_AT] = value }
+    }
+
+    suspend fun updateCategoryPriorityOrder(value: String) {
+        dataStore.edit { it[PreferenceKeys.CATEGORY_PRIORITY_ORDER] = value }
+    }
+
+    suspend fun markUserActive(nowMillis: Long = System.currentTimeMillis()) {
+        val today = LocalDate.now().toString()
+        dataStore.edit { preferences ->
+            val activeDate = preferences[PreferenceKeys.TODAY_ACTIVE_DATE]
+            val activeStartedAt = preferences[PreferenceKeys.TODAY_ACTIVE_STARTED_AT]
+            if (activeDate != today || activeStartedAt == null) {
+                preferences[PreferenceKeys.TODAY_ACTIVE_DATE] = today
+                preferences[PreferenceKeys.TODAY_ACTIVE_STARTED_AT] = nowMillis
+            }
+            preferences[PreferenceKeys.LAST_USER_ACTIVITY_AT] = nowMillis
+        }
+    }
+
     // ── Utility ──────────────────────────────────────────────────────────────
 
     fun getBedTimeAsMinutes(): Flow<Int> = bedTimeFlow.map { parseTimeToMinutes(it) }
@@ -250,5 +286,6 @@ class UserPreferenceManager @Inject constructor(
         const val DEFAULT_AVATAR_GENDER = "MALE"
         const val DEFAULT_USER_NAME = ""
         const val DEFAULT_DELIVERY_PACKAGES = "com.sample.baemin,com.sample.coupangeats"
+        const val DEFAULT_CATEGORY_PRIORITY_ORDER = "MEAL,WATER,DIGITAL,STRETCH"
     }
 }

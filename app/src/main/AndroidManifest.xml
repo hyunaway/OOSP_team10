@@ -98,14 +98,23 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.example.habittracker.widget.ACTION_ADD_WATER_250" />
+                <action android:name="com.example.habittracker.widget.ACTION_ADD_STRETCH_QUICK" />
                 <action android:name="com.example.habittracker.widget.ACTION_OPEN_STRETCH" />
                 <action android:name="com.example.habittracker.widget.ACTION_OPEN_APP" />
                 <action android:name="com.example.habittracker.widget.ACTION_REFRESH_WIDGET" />
+                <action android:name="com.example.habittracker.widget.ACTION_GO_TO_DOMINANT" />
+                <action android:name="com.example.habittracker.widget.ACTION_CARD_CLICK" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/habit_status_widget_info" />
         </receiver>
+
+        <!-- StackView 카드 데이터 제공 서비스 -->
+        <service
+            android:name=".widget.HabitWidgetRemoteViewsService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
 
         <!-- WorkManager on-demand init: HiltWorkerFactory via Configuration.Provider -->
         <provider

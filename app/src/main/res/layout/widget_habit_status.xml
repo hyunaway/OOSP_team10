@@ -7,149 +7,86 @@
     android:background="@drawable/widget_background"
     android:padding="10dp">
 
-    <!-- 왼쪽: 픽셀 아트 아바타 -->
+    <!--
+        왼쪽 영역 (전체의 ~40%)
+        위: 복합 위험 상태 도트 아이콘 4개 (한 줄)
+        중앙: 대표 아바타 (dominantCategory 기반, 오른쪽 카드 전환과 무관하게 고정)
+    -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="2"
-        android:gravity="center">
+        android:orientation="vertical"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp">
 
+        <!-- 복합 위험 상태 아이콘 4개 (가로 한 줄) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_horizontal"
+            android:layout_marginBottom="4dp">
+
+            <ImageView
+                android:id="@+id/widget_status_icon_meal"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:src="@drawable/widget_dot_inactive"
+                android:contentDescription="" />
+
+            <ImageView
+                android:id="@+id/widget_status_icon_water"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:src="@drawable/widget_dot_inactive"
+                android:contentDescription=""
+                android:layout_marginLeft="6dp" />
+
+            <ImageView
+                android:id="@+id/widget_status_icon_digital"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:src="@drawable/widget_dot_inactive"
+                android:contentDescription=""
+                android:layout_marginLeft="6dp" />
+
+            <ImageView
+                android:id="@+id/widget_status_icon_stretch"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:src="@drawable/widget_dot_inactive"
+                android:contentDescription=""
+                android:layout_marginLeft="6dp" />
+
+        </LinearLayout>
+
+        <!-- 대표 아바타 (남은 공간을 모두 채움) -->
         <ImageView
             android:id="@+id/widget_avatar_image"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:scaleType="fitCenter"
             android:contentDescription=""
             android:src="@drawable/widget_avatar_male_good" />
 
     </LinearLayout>
 
-    <!-- 오른쪽: 정보 패널 -->
-    <LinearLayout
+    <!--
+        오른쪽 영역 (전체의 ~60%): StackView — 사용자 우선순위 순서의 4개 카드
+        사용자가 카드를 직접 넘길 수 있음. 왼쪽 아바타와 무관하게 독립 동작.
+    -->
+    <StackView
+        android:id="@+id/widget_stack_view"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_weight="3"
-        android:orientation="vertical"
-        android:paddingLeft="8dp"
-        android:gravity="center_vertical">
-
-        <!-- 브랜드 -->
-        <TextView
-            android:id="@+id/widget_brand_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="해빗프렌즈"
-            android:textSize="9sp"
-            android:textStyle="bold"
-            android:textColor="#FFFF7043" />
-
-        <!-- 말풍선 문구 -->
-        <TextView
-            android:id="@+id/widget_speech_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:text="오늘 습관 상태 좋아! 계속 유지해보자!"
-            android:textSize="11sp"
-            android:textColor="#FF424242"
-            android:maxLines="2"
-            android:ellipsize="end" />
-
-        <!-- 대표 상태 칩 -->
-        <TextView
-            android:id="@+id/widget_status_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="양호"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:textColor="#FF6D4C41"
-            android:background="@drawable/widget_status_chip_background"
-            android:paddingLeft="6dp"
-            android:paddingRight="6dp"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp" />
-
-        <!-- 보조 상태 아이콘 3개 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="4dp">
-
-            <ImageView
-                android:id="@+id/widget_sub_status_1_icon"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:contentDescription=""
-                android:visibility="gone" />
-            <TextView
-                android:id="@+id/widget_sub_status_1_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="9sp"
-                android:textColor="#FF757575"
-                android:layout_marginLeft="2dp"
-                android:layout_marginRight="5dp"
-                android:visibility="gone" />
-
-            <ImageView
-                android:id="@+id/widget_sub_status_2_icon"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:contentDescription=""
-                android:visibility="gone" />
-            <TextView
-                android:id="@+id/widget_sub_status_2_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="9sp"
-                android:textColor="#FF757575"
-                android:layout_marginLeft="2dp"
-                android:layout_marginRight="5dp"
-                android:visibility="gone" />
-
-            <ImageView
-                android:id="@+id/widget_sub_status_3_icon"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:contentDescription=""
-                android:visibility="gone" />
-            <TextView
-                android:id="@+id/widget_sub_status_3_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="9sp"
-                android:textColor="#FF757575"
-                android:layout_marginLeft="2dp"
-                android:visibility="gone" />
-
-        </LinearLayout>
-
-        <!-- 기록하러 가기 버튼 -->
-        <TextView
-            android:id="@+id/widget_action_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:text="기록하러 가기"
-            android:textSize="10sp"
-            android:textColor="#FFFFFFFF"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:background="@drawable/widget_button_background"
-            android:paddingLeft="4dp"
-            android:paddingRight="4dp"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp" />
-
-    </LinearLayout>
+        android:layout_weight="3" />
 
     <!--
-        레거시 호환 영역 — WidgetUpdateHelper.buildRemoteViews 및
-        HabitStatusWidgetProvider.attachPendingIntents 에서 참조하는
-        구 View ID를 유지한다. visibility="gone" 이므로 화면에 표시되지 않는다.
+        레거시 호환 영역 — visibility="gone" 이므로 화면에 표시되지 않는다.
+        WidgetUpdateHelper.buildRemoteViews 및 HabitStatusWidgetProvider.attachPendingIntents
+        에서 참조하는 구 View ID를 유지한다.
     -->
     <LinearLayout
         android:layout_width="wrap_content"
@@ -157,6 +94,68 @@
         android:orientation="vertical"
         android:visibility="gone">
 
+        <TextView
+            android:id="@+id/widget_brand_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/widget_speech_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/widget_status_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <ImageView
+            android:id="@+id/widget_sub_status_1_icon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/widget_sub_status_1_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <ImageView
+            android:id="@+id/widget_sub_status_2_icon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/widget_sub_status_2_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <ImageView
+            android:id="@+id/widget_sub_status_3_icon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/widget_sub_status_3_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:id="@+id/widget_action_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <LinearLayout
+            android:id="@+id/widget_right_panel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/widget_card_category_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/widget_card_message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/widget_card_description"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/widget_card_quick_action"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
         <TextView
             android:id="@+id/avatarText"
             android:layout_width="wrap_content"

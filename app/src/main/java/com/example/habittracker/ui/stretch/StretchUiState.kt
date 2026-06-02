@@ -18,5 +18,10 @@ data class StretchUiState(
     val streak: Int = 0,
     val buttonStates: Map<String, StretchButtonState> = emptyMap(),
     val todayCount: Int = 0,
+    val personalizedGoalCount: Int = 4,
+    val hasTodayActiveStarted: Boolean = false,
+    val isStretching: Boolean = false,
+    val countdownSeconds: Int = 60,
+    val completionMessage: String? = null,
     val isHalfGoalAchieved: Boolean = false
 )

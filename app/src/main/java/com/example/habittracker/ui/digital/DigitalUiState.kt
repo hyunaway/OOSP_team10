@@ -8,4 +8,5 @@ data class DigitalUiState(
     val errorMessage: String? = null,
     val todayStatus: DigitalTodayStatus? = null,
     val selectedDigitalPackages: Set<String> = emptySet(),
+    val digitalInterventionThresholdMinutes: Int = 30,
 )
