@@ -8,8 +8,7 @@ import com.example.habittracker.domain.repository.DigitalRepository
 import com.example.habittracker.domain.repository.MealRepository
 import com.example.habittracker.domain.repository.StretchRepository
 import com.example.habittracker.domain.repository.WaterRepository
-import com.example.habittracker.ui.avatar.LateNightAvatarState
-import com.example.habittracker.ui.avatar.StretchAvatarState
+import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +33,7 @@ class SharedAvatarViewModel @Inject constructor(
     private val waterRepository: WaterRepository,
     private val digitalRepository: DigitalRepository,
     private val stretchRepository: StretchRepository,
+    private val getCurrentMealInterventionStatusUseCase: GetCurrentMealInterventionStatusUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AvatarUiState())
@@ -49,13 +49,16 @@ class SharedAvatarViewModel @Inject constructor(
                 stretchRepository.getTodayStatus(),
                 userPreferenceManager.digitalInterventionBaseDurationFlow
             ) { meal, water, digital, stretch, digitalLimit ->
-                AvatarStateResolver.resolve(
+                val mealInterventionStatus = getCurrentMealInterventionStatusUseCase()
+                val resolved = AvatarStateResolver.resolve(
                     mealStatus = meal,
                     waterStatus = water,
                     digitalStatus = digital,
                     stretchStatus = stretch,
-                    digitalLimitMinutes = digitalLimit
+                    digitalLimitMinutes = digitalLimit,
+                    isMealActionable = mealInterventionStatus.isActionable,
                 )
+                Pair(resolved, mealInterventionStatus)
             }
 
             // 최근 3일 식사 이력을 플로우로 계속 관찰하여 결식/규칙성 여부 판별
@@ -93,13 +96,14 @@ class SharedAvatarViewModel @Inject constructor(
                 userPreferenceManager.userNameFlow,
                 todayHabitsFlow,
                 mealHistoryFlow
-            ) { genderStr, name, resolved, mealHistory ->
+            ) { genderStr, name, resolvedWithMealIntervention, mealHistory ->
                 val gender = AvatarGender.fromString(genderStr)
+                val (resolved, mealInterventionStatus) = resolvedWithMealIntervention
                 val (isThreeDaySkip, allMeals3Days) = mealHistory
 
                 val finalState = when {
                     allMeals3Days -> AvatarState.GOOD
-                    isThreeDaySkip -> AvatarState.WARNING
+                    isThreeDaySkip && mealInterventionStatus.isActionable -> AvatarState.WARNING
                     else -> resolved.primaryState
                 }
 
@@ -110,7 +114,10 @@ class SharedAvatarViewModel @Inject constructor(
                     userName = name.ifEmpty { "나" },
                     primaryState = finalState,
                     activeStates = resolved.activeStates,
-                    bubbleMessage = finalState.bubbleMessage,
+                    bubbleMessage = AvatarStateResolver.bubbleMessageFor(
+                        primaryState = finalState,
+                        mealInterventionStatus = mealInterventionStatus,
+                    ),
                     imageResId = imageResId
                 )
             }

@@ -9,9 +9,11 @@ import com.example.habittracker.data.model.MealType
 import com.example.habittracker.domain.repository.MealRepository
 import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.meal.AddMealLogUseCase
+import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
 import com.example.habittracker.domain.usecase.meal.GetMealHistoryUseCase
 import com.example.habittracker.domain.usecase.meal.GetTodayMealStatusUseCase
 import com.example.habittracker.domain.usecase.meal.MealClassifier
+import com.example.habittracker.domain.usecase.meal.MealCurrentInterventionStatus
 import com.example.habittracker.domain.usecase.meal.MealDailyStatus
 import com.example.habittracker.domain.usecase.meal.MealDailyStatusCalculator
 import com.example.habittracker.widget.WidgetUpdateHelper
@@ -43,6 +45,7 @@ class MealViewModel @Inject constructor(
     private val userPreferenceManager: UserPreferenceManager,
     private val mealClassifier: MealClassifier,
     private val mealDailyStatusCalculator: MealDailyStatusCalculator,
+    private val getCurrentMealInterventionStatusUseCase: GetCurrentMealInterventionStatusUseCase,
     private val markUserActiveUseCase: MarkUserActiveUseCase,
 ) : ViewModel() {
 
@@ -65,7 +68,8 @@ class MealViewModel @Inject constructor(
                 mealRepository.observeLogsForMealScreen(today, previousDate),
                 userPreferenceManager.wakeTimeFlow,
                 userPreferenceManager.bedTimeFlow,
-            ) { logs, displayLogs, wakeTime, bedTime ->
+                userPreferenceManager.todayActiveStartedAtFlow,
+            ) { logs, displayLogs, wakeTime, bedTime, activeStartedAt ->
                 val wakeMinutes = parseTimeToMinutes(wakeTime, DEFAULT_WAKE_TIME_MINUTES)
                 val bedMinutes = parseTimeToMinutes(
                     value = bedTime,
@@ -77,18 +81,33 @@ class MealViewModel @Inject constructor(
                     nowMillis = System.currentTimeMillis(),
                     wakeTimeMinutes = wakeMinutes,
                     bedTimeMinutes = bedMinutes,
+                    todayActiveStartedAtMillis = activeStartedAt,
                 )
-                MealScreenLogState(logs, displayLogs, dailyStatus, dailyStatus.message)
+                val currentMealInterventionStatus = getCurrentMealInterventionStatusUseCase()
+                MealScreenLogState(logs, displayLogs, dailyStatus, dailyStatus.message, currentMealInterventionStatus)
             }
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
                 .collect { state ->
                     _uiState.update {
+                        val evaluation = state.dailyStatus.dailyEvaluation
                         it.copy(
                             loading = false,
                             todayLogs = state.todayLogs,
                             displayLogs = state.displayLogs,
                             dailyMealStatus = state.dailyStatus,
                             dailyStatusMessage = state.message,
+                            expectedMealCount = evaluation?.plan?.expectedMeals?.size ?: 0,
+                            completedExpectedMealCount = evaluation?.completedMealTypes?.size ?: 0,
+                            skippedByLateWake = evaluation?.skippedByLateWake ?: emptySet(),
+                            mealPlanType = evaluation?.plan?.planType,
+                            currentActionableMealType = state.currentMealInterventionStatus.actionableMealType
+                                ?.takeIf { state.currentMealInterventionStatus.isActionable },
+                            currentMealWindowType = state.currentMealInterventionStatus.actionableMealType,
+                            currentMealInterventionReason = state.currentMealInterventionStatus.reason,
+                            currentMealInterventionIntensity = state.currentMealInterventionStatus.intensity,
+                            mealPlanMessage = state.dailyStatus.mealPlanMessage,
+                            additionalIntakeCount = evaluation?.additionalIntakeCount ?: 0,
+                            hasIrregularIntake = evaluation?.hasIrregularIntake == true,
                         )
                     }
                 }
@@ -329,4 +348,5 @@ private data class MealScreenLogState(
     val displayLogs: List<MealLogEntity>,
     val dailyStatus: MealDailyStatus,
     val message: String,
+    val currentMealInterventionStatus: MealCurrentInterventionStatus,
 )
