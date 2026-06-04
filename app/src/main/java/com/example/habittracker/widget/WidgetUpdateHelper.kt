@@ -13,6 +13,7 @@ import com.example.habittracker.domain.model.WaterShortageLevel
 import com.example.habittracker.domain.repository.StretchRepository
 import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.digital.GetTodayDigitalStatusUseCase
+import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
 import com.example.habittracker.domain.usecase.meal.GetTodayMealStatusUseCase
 import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseCase
 import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
@@ -41,11 +42,11 @@ object WidgetUpdateHelper {
 
         val waterStatus = ep.checkWaterInterventionNeededUseCase()()
         val digitalStatus = ep.getTodayDigitalStatusUseCase()().first()
-        val mealTodayStatus = ep.getTodayMealStatusUseCase()().first()
         val stretchTodayStatus = ep.getTodayStretchStatusUseCase()().first()
         val prefManager = ep.userPreferenceManager()
         val genderString = prefManager.avatarGenderFlow.first()
         val priorityOrderRaw = prefManager.categoryPriorityOrderFlow.first()
+        val currentMealInterventionStatus = ep.getCurrentMealInterventionStatusUseCase()()
 
         // 앱(AvatarStateResolver)과 동일한 기준: 일일 목표의 50% 미만이면 물 부족
         val displayWaterLevel = if (waterStatus.currentAmountMl < WATER_GOAL_ML / 2) {
@@ -55,12 +56,11 @@ object WidgetUpdateHelper {
         }
         val isDigitalOveruse = digitalStatus.totalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES
 
-        val loggedMealCount = listOf(
-            mealTodayStatus.breakfastLogged,
-            mealTodayStatus.lunchLogged,
-            mealTodayStatus.dinnerLogged,
-        ).count { it }
-        val mealStatus = if (loggedMealCount < 2) MealStatus.LACK else MealStatus.NORMAL
+        val mealStatus = if (currentMealInterventionStatus.isActionable) {
+            MealStatus.LACK
+        } else {
+            MealStatus.NORMAL
+        }
 
         val stretchCount = stretchTodayStatus.totalCount
         val stretchStatus = if (stretchCount < STRETCH_GOAL_COUNT) StretchStatus.LACK else StretchStatus.NORMAL
@@ -282,6 +282,7 @@ object WidgetUpdateHelper {
             WaterShortageLevel.MEDIUM -> Color.rgb(21, 101, 192)
             WaterShortageLevel.SEVERE -> Color.rgb(13, 71, 161)
         }
+
 }
 
 @EntryPoint
@@ -290,6 +291,7 @@ interface WidgetDependenciesEntryPoint {
     fun checkWaterInterventionNeededUseCase(): CheckWaterInterventionNeededUseCase
     fun getTodayDigitalStatusUseCase(): GetTodayDigitalStatusUseCase
     fun getTodayMealStatusUseCase(): GetTodayMealStatusUseCase
+    fun getCurrentMealInterventionStatusUseCase(): GetCurrentMealInterventionStatusUseCase
     fun getTodayStretchStatusUseCase(): GetTodayStretchStatusUseCase
     fun stretchRepository(): StretchRepository
     fun userPreferenceManager(): UserPreferenceManager
