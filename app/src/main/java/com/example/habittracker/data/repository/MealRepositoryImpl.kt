@@ -23,10 +23,10 @@ class MealRepositoryImpl @Inject constructor(
 ) : MealRepository {
 
     override fun getTodayLogs(): Flow<List<MealLogEntity>> =
-        mealDao.getTodayLogs()
+        mealDao.observeLogsByMealDate(LocalDate.now().toString())
 
     override fun getTodayStatus(): Flow<MealTodayStatus> =
-        mealDao.getTodayLogs().map { logs ->
+        mealDao.observeLogsByMealDate(LocalDate.now().toString()).map { logs ->
             MealTodayStatus(
                 breakfastLogged = logs.any { it.type == MealType.BREAKFAST },
                 lunchLogged = logs.any { it.type == MealType.LUNCH },

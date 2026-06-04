@@ -1,17 +1,13 @@
 package com.example.habittracker.domain.usecase.digital
 
 import com.example.habittracker.data.local.UserPreferenceManager
-import com.example.habittracker.data.model.MealType
 import com.example.habittracker.domain.model.RecommendedInterventionAction
 import com.example.habittracker.domain.model.RecommendedInterventionActionType
 import com.example.habittracker.domain.model.WaterShortageLevel
-import com.example.habittracker.domain.repository.MealRepository
-import com.example.habittracker.domain.usecase.meal.MealDailyStatusCalculator
-import com.example.habittracker.domain.usecase.meal.MealDailyStatusLevel
+import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
 import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseCase
 import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
 import kotlinx.coroutines.flow.first
-import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,8 +16,7 @@ class ResolveDigitalInterventionActionUseCase @Inject constructor(
     private val userPreferenceManager: UserPreferenceManager,
     private val checkWaterInterventionNeededUseCase: CheckWaterInterventionNeededUseCase,
     private val getTodayStretchStatusUseCase: GetTodayStretchStatusUseCase,
-    private val mealRepository: MealRepository,
-    private val mealDailyStatusCalculator: MealDailyStatusCalculator,
+    private val getCurrentMealInterventionStatusUseCase: GetCurrentMealInterventionStatusUseCase,
 ) {
 
     suspend operator fun invoke(): RecommendedInterventionAction {
@@ -74,30 +69,12 @@ class ResolveDigitalInterventionActionUseCase @Inject constructor(
 
     private suspend fun resolveMealAction(): RecommendedInterventionAction? =
         runCatching {
-            val today = LocalDate.now().toString()
-            val logs = mealRepository.getLogsByMealDate(today)
-            val wakeTimeMinutes = parseTimeToMinutes(
-                userPreferenceManager.wakeTimeFlow.first(),
-                DEFAULT_WAKE_TIME_MINUTES,
+            val status = getCurrentMealInterventionStatusUseCase()
+            if (!status.isActionable) return@runCatching null
+            RecommendedInterventionAction(
+                type = RecommendedInterventionActionType.MEAL,
+                message = "지금 챙길 수 있는 식사 시간이 비어 있어요. 가볍게 챙겨볼까요?",
             )
-            val bedTimeMinutes = parseTimeToMinutes(
-                value = userPreferenceManager.bedTimeFlow.first(),
-                fallback = DEFAULT_BED_TIME_MINUTES,
-                midnightAsEndOfDay = true,
-            )
-            val status = mealDailyStatusCalculator.calculate(
-                logs = logs,
-                nowMillis = System.currentTimeMillis(),
-                wakeTimeMinutes = wakeTimeMinutes,
-                bedTimeMinutes = bedTimeMinutes,
-            )
-            if (status.statusLevel !in mealInterventionLevels) return@runCatching null
-            val message = if (MealType.DINNER in status.missedMealTypes) {
-                "화면을 잠깐 내려두고 식사 리듬도 챙겨볼까요?"
-            } else {
-                "식사 리듬이 조금 비어 있어요. 가볍게 챙겨볼까요?"
-            }
-            RecommendedInterventionAction(RecommendedInterventionActionType.MEAL, message)
         }.getOrNull()
 
     private fun digitalBreakAction(): RecommendedInterventionAction =
@@ -106,31 +83,12 @@ class ResolveDigitalInterventionActionUseCase @Inject constructor(
             message = "사용 시간이 길어졌어요. 잠깐 눈을 쉬어볼까요?",
         )
 
-    private fun parseTimeToMinutes(
-        value: String,
-        fallback: Int,
-        midnightAsEndOfDay: Boolean = false,
-    ): Int {
-        val parts = value.split(":")
-        val hour = parts.getOrNull(0)?.toIntOrNull()
-        val minute = parts.getOrNull(1)?.toIntOrNull()
-        if (hour == null || minute == null || hour !in 0..24 || minute !in 0..59) {
-            return fallback
-        }
-        if (hour == 24 && minute != 0) return fallback
-        if (midnightAsEndOfDay && hour == 0 && minute == 0) return MINUTES_PER_DAY
-        return hour * 60 + minute
-    }
-
     companion object {
         private const val CATEGORY_MEAL = "MEAL"
         private const val CATEGORY_WATER = "WATER"
         private const val CATEGORY_DIGITAL = "DIGITAL"
         private const val CATEGORY_STRETCH = "STRETCH"
         private const val STRETCH_GOAL_COUNT = 5
-        private const val MINUTES_PER_DAY = 24 * 60
-        private const val DEFAULT_WAKE_TIME_MINUTES = 8 * 60
-        private const val DEFAULT_BED_TIME_MINUTES = 24 * 60
         private val SUPPORTED_CATEGORIES = setOf(
             CATEGORY_MEAL,
             CATEGORY_WATER,
@@ -138,9 +96,5 @@ class ResolveDigitalInterventionActionUseCase @Inject constructor(
             CATEGORY_STRETCH,
         )
         private val DEFAULT_PRIORITY_ORDER = listOf(CATEGORY_MEAL, CATEGORY_WATER, CATEGORY_STRETCH)
-        private val mealInterventionLevels = setOf(
-            MealDailyStatusLevel.NEED_ATTENTION,
-            MealDailyStatusLevel.RISK,
-        )
     }
 }

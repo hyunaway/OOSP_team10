@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.domain.model.DashboardState
 import com.example.habittracker.domain.usecase.dashboard.GetDashboardStateUseCase
+import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
 import com.example.habittracker.ui.avatar.AvatarGender
 import com.example.habittracker.ui.avatar.AvatarImageMapper
 import com.example.habittracker.ui.avatar.AvatarStateResolver
@@ -31,6 +32,7 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     getDashboardStateUseCase: GetDashboardStateUseCase,
     userPreferenceManager: UserPreferenceManager,
+    private val getCurrentMealInterventionStatusUseCase: GetCurrentMealInterventionStatusUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -44,11 +46,13 @@ class HomeViewModel @Inject constructor(
                 userPreferenceManager.userNameFlow,
             ) { dashState, genderStr, name ->
                 val gender = AvatarGender.fromString(genderStr)
+                val mealInterventionStatus = getCurrentMealInterventionStatusUseCase()
                 val resolveResult = AvatarStateResolver.resolve(
                     mealStatus = dashState.mealStatus,
                     waterStatus = dashState.waterStatus,
                     digitalStatus = dashState.digitalStatus,
                     stretchStatus = dashState.stretchStatus,
+                    isMealActionable = mealInterventionStatus.isActionable,
                 )
                 val imageResId = AvatarImageMapper.resolve(gender, resolveResult.primaryState)
                 HomeUiState(
@@ -59,7 +63,10 @@ class HomeViewModel @Inject constructor(
                         userName = name.ifEmpty { "나" },
                         primaryState = resolveResult.primaryState,
                         activeStates = resolveResult.activeStates,
-                        bubbleMessage = resolveResult.primaryState.bubbleMessage,
+                        bubbleMessage = AvatarStateResolver.bubbleMessageFor(
+                            primaryState = resolveResult.primaryState,
+                            mealInterventionStatus = mealInterventionStatus,
+                        ),
                         imageResId = imageResId,
                     ),
                 )

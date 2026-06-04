@@ -43,6 +43,7 @@ import androidx.navigation.NavController
 import com.example.habittracker.data.entity.MealLogEntity
 import com.example.habittracker.data.model.MealType
 import com.example.habittracker.domain.model.MealTodayStatus
+import com.example.habittracker.domain.usecase.meal.MealInterventionIntensity
 import com.example.habittracker.ui.avatar.SharedAvatarViewModel
 import com.example.habittracker.ui.components.CategoryScaffold
 import com.example.habittracker.ui.theme.HabitCardWhite
@@ -72,6 +73,7 @@ fun MealInputScreen(
     val latestLog = uiState.displayLogs.firstOrNull()
     val visibleMessage = uiState.transientMessage
         ?: uiState.classificationMessage
+        ?: currentMealSpeech(uiState)
         ?: uiState.dailyStatusMessage
 
     val navBackStackEntry = navController.currentBackStackEntry
@@ -168,7 +170,15 @@ fun MealInputScreen(
         onSettingsClick = { navController.navigate("settings") },
         onReportsClick = { navController.navigate("reports") },
     ) {
-        MealStatusCard(status = status, dailyStatusMessage = uiState.dailyStatusMessage)
+        MealStatusCard(
+            status = status,
+            dailyStatusMessage = uiState.dailyStatusMessage,
+            mealPlanMessage = uiState.mealPlanMessage,
+            expectedMealCount = uiState.expectedMealCount,
+            completedExpectedMealCount = uiState.completedExpectedMealCount,
+            additionalIntakeCount = uiState.additionalIntakeCount,
+            hasIrregularIntake = uiState.hasIrregularIntake,
+        )
         MealQuickLogCard(
             todayLogs = uiState.displayLogs,
             logsExpanded = uiState.mealLogsExpanded,
@@ -189,10 +199,43 @@ fun MealInputScreen(
     }
 }
 
+private fun currentMealSpeech(uiState: MealUiState): String? {
+    val mealName = uiState.currentMealWindowType?.let { mealTypeLabel(it) }
+    return when {
+        uiState.currentActionableMealType != null &&
+            uiState.currentMealInterventionIntensity == MealInterventionIntensity.SOFT -> {
+            "오늘은 식사 리듬을 조금 여유 있게 볼게요. 가볍게 챙길 수 있을 때만 챙겨요."
+        }
+        uiState.currentActionableMealType != null -> {
+            "아직 ${mealTypeLabel(uiState.currentActionableMealType)}을 챙기지 않았어요. 가볍게 챙겨볼까요? 🍽️"
+        }
+        uiState.currentMealInterventionReason == "already_completed" && mealName != null -> {
+            "$mealName 잘 챙겼어요. 다음 식사 리듬도 천천히 이어가요."
+        }
+        uiState.currentMealInterventionReason == "not_in_meal_window" -> {
+            "오늘 식사 기록은 잘 저장되고 있어요. 다음 식사 때 다시 챙겨볼게요."
+        }
+        else -> null
+    }
+}
+
+private fun mealTypeLabel(type: MealType): String =
+    when (type) {
+        MealType.BREAKFAST -> "아침"
+        MealType.LUNCH -> "점심"
+        MealType.DINNER -> "저녁"
+        MealType.LATE_NIGHT -> "야식"
+    }
+
 @Composable
 private fun MealStatusCard(
     status: MealTodayStatus?,
     dailyStatusMessage: String?,
+    mealPlanMessage: String?,
+    expectedMealCount: Int,
+    completedExpectedMealCount: Int,
+    additionalIntakeCount: Int,
+    hasIrregularIntake: Boolean,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -237,6 +280,34 @@ private fun MealStatusCard(
                 MealBadge(label = "점심", checked = status?.lunchLogged == true)
                 MealBadge(label = "저녁", checked = status?.dinnerLogged == true)
                 MealBadge(label = "야식", checked = status?.lateNightLogged == true)
+            }
+            mealPlanMessage?.let {
+                Spacer(modifier = Modifier.height(HabitSpacing.base))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HabitTextSecondary,
+                )
+            }
+            if (expectedMealCount > 0) {
+                Spacer(modifier = Modifier.height(HabitSpacing.xxs))
+                Text(
+                    text = "오늘 계획: $completedExpectedMealCount/$expectedMealCount 완료",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = HabitTextSecondary,
+                )
+            }
+            if (additionalIntakeCount > 0) {
+                Spacer(modifier = Modifier.height(HabitSpacing.xxs))
+                Text(
+                    text = if (hasIrregularIntake) {
+                        "오늘은 식사가 여러 번 나뉘어 기록됐어요. 리듬만 가볍게 맞춰요."
+                    } else {
+                        "추가로 챙긴 식사는 완료 횟수와 분리해서 볼게요."
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = HabitTextSecondary,
+                )
             }
             dailyStatusMessage?.let {
                 Spacer(modifier = Modifier.height(HabitSpacing.base))
