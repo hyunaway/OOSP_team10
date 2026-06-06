@@ -13,5 +13,20 @@
     <color name="water_primary">#FF42A8E0</color>
     <color name="digital_primary">#FF8B75D7</color>
     <color name="stretch_primary">#FF5BAE6E</color>
-    <color name="status_inactive">#FFD6D6D6</color>
+    <color name="status_inactive">#FFA0A0A0</color>
+
+    <!-- Widget colors -->
+    <color name="widget_background">#FAF3EC</color>
+    <color name="widget_card_background">#FDF0E4</color>
+    <color name="widget_accent_orange">#F07B3F</color>
+    <color name="widget_text_main">#3D2B1F</color>
+    <color name="widget_text_sub">#9C7B65</color>
+    <color name="widget_icon_inactive">#E0C9B5</color>
+    <color name="widget_button_background">#FAE8D8</color>
+
+    <!-- Widget category icon colors -->
+    <color name="widget_color_meal">#F07B3F</color>
+    <color name="widget_color_water">#75C2D8</color>
+    <color name="widget_color_digital">#B0B0B0</color>
+    <color name="widget_color_stretch">#6DBF8A</color>
 </resources>

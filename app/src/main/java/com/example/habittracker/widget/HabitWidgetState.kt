@@ -1,68 +1,55 @@
-// 경로: com/example/habittracker/widget/HabitWidgetState.kt
 package com.example.habittracker.widget
 
-import com.example.habittracker.domain.model.WaterShortageLevel
+import java.time.LocalDateTime
+
+data class MealWidgetData(
+    val lastMealTime: LocalDateTime?,
+    val todayRecordCount: Int,
+    val targetMealCount: Int = 3,
+)
+
+data class WaterWidgetData(
+    val currentMl: Int,
+    val goalMl: Int,
+)
+
+data class DigitalWidgetData(
+    val usageMinutes: Int,
+    val goalMinutes: Int = 120,
+)
+
+data class StretchTimerWidgetState(
+    val isRunning: Boolean,
+    val remainingSeconds: Int,
+    val isCompleted: Boolean,
+)
+
+data class StretchWidgetData(
+    val lastStretchAtMillis: Long?,
+    val totalCount: Int,
+    val timerState: StretchTimerWidgetState,
+)
 
 data class HabitWidgetState(
-    val waterTotalMl: Int,
-    val isNeedWater: Boolean,
-    val waterShortageLevel: WaterShortageLevel,
-    val waterStatusText: String,
-    val speechBubbleMessage: String,
-    val abnormalStatusText: String,
-    val abnormalStatusType: WidgetAbnormalStatusType,
-    val abnormalStatusColor: Int,
-    val widgetMessage: String,
-    val stretchCount: Int,
-    val avatarHealthScore: Int,
-    val avatarEmoji: String,
-    // 4x2 정보형 위젯용 상태 필드
-    val dominantCategory: WidgetHabitCategory = WidgetHabitCategory.GOOD,
-    val gender: WidgetGender = WidgetGender.MALE,
-    val mealStatus: MealStatus = MealStatus.NORMAL,
-    val stretchStatus: StretchStatus = StretchStatus.NORMAL,
-    val digitalUsageMinutes: Int = 0,
-    // 카테고리별 상세 상태 목록 (StackView 등 다중 항목 표시용)
-    val categoryStates: List<WidgetHabitState> = emptyList(),
+    val dominantCategory: HabitCategory,
+    val avatarResId: Int,
+    val categoryCards: List<HabitCardState>,
 )
 
-/** 카테고리별 위험 상태를 담는 단위 모델 */
-data class WidgetHabitState(
-    val category: WidgetHabitCategory,
-    val isRisk: Boolean,
-    val title: String,
-    val message: String,
+data class HabitCardState(
+    val category: HabitCategory,
+    val iconResId: Int,
+    val statusLabel: String,
     val description: String,
-    val actionText: String,
+    val actionLabel: String,
+    val riskLevel: RiskLevel,
+    val isActionable: Boolean,
+    val mealData: MealWidgetData? = null,
+    val waterData: WaterWidgetData? = null,
+    val digitalData: DigitalWidgetData? = null,
+    val stretchData: StretchWidgetData? = null,
 )
 
-enum class WidgetAbnormalStatusType {
-    NONE,
-    WATER,
-    DIGITAL,
-    STRETCH,
-}
+enum class HabitCategory { MEAL, WATER, DIGITAL, STRETCH, GOOD }
 
-// 대표 상태 우선순위: MEAL > WATER > DIGITAL > STRETCH > GOOD
-enum class WidgetHabitCategory {
-    MEAL,
-    WATER,
-    DIGITAL,
-    STRETCH,
-    GOOD,
-}
-
-enum class WidgetGender {
-    MALE,
-    FEMALE,
-}
-
-enum class MealStatus {
-    NORMAL,
-    LACK,
-}
-
-enum class StretchStatus {
-    NORMAL,
-    LACK,
-}
+enum class RiskLevel { NORMAL, WARNING, DANGER }

@@ -90,6 +90,9 @@ dependencies {
     // Accompanist
     implementation(libs.accompanist.permissions)
 
+    // Splash Screen
+    implementation(libs.androidx.core.splashscreen)
+
     // Test
     testImplementation(libs.junit)
     testImplementation("io.mockk:mockk:1.13.10")

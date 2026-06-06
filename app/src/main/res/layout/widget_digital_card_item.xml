@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_card_body"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="@drawable/widget_card_item_background"
+    android:paddingLeft="@dimen/widget_padding_inner"
+    android:paddingRight="@dimen/widget_padding_inner"
+    android:paddingTop="@dimen/widget_padding_outer"
+    android:paddingBottom="@dimen/widget_padding_outer">
+
+    <!-- 왼쪽 정보 영역 (60%): 카테고리명+상태배지 / 메인 문구 / 사용량 요약 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="3"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <!-- 상단 행: "디지털" (좌) + 상태 배지 (우) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/widget_card_name"
+                style="@style/WidgetTextStyle.CategoryTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="디지털" />
+
+            <TextView
+                android:id="@+id/widget_digital_status_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="양호"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/stretch_primary" />
+
+        </LinearLayout>
+
+        <!-- 사용량 요약 -->
+        <TextView
+            android:id="@+id/widget_digital_usage"
+            style="@style/WidgetTextStyle.Description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="오늘 사용 0분"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+    </LinearLayout>
+
+    <!-- 오른쪽 버튼 영역 (40%): 관리하기 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="2"
+        android:layout_marginLeft="8dp"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_btn_digital_manage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="관리하기"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_button_background"
+            android:paddingLeft="4dp"
+            android:paddingRight="4dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
+
+    </LinearLayout>
+
+</LinearLayout>
