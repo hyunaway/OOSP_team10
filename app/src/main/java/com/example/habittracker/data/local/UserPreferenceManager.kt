@@ -4,6 +4,7 @@ package com.example.habittracker.data.local
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import com.example.habittracker.domain.model.PeakWindow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -30,24 +31,10 @@ class UserPreferenceManager @Inject constructor(
     val preferredMessageToneFlow: Flow<String> = dataStore.data.map {
         it[PreferenceKeys.PREFERRED_MESSAGE_TONE] ?: DEFAULT_PREFERRED_MESSAGE_TONE
     }
-    val weekdayWaterPeakHoursFlow: Flow<String> = dataStore.data.map {
-        it[PreferenceKeys.WEEKDAY_WATER_PEAK_HOURS] ?: ""
+    val waterPeakJsonFlow: Flow<String> = dataStore.data.map {
+        it[PreferenceKeys.WATER_PEAK_JSON] ?: ""
     }
-    val weekendWaterPeakHoursFlow: Flow<String> = dataStore.data.map {
-        it[PreferenceKeys.WEEKEND_WATER_PEAK_HOURS] ?: ""
-    }
-    val weekdayMealTimeMapFlow: Flow<String> = dataStore.data.map {
-        it[PreferenceKeys.WEEKDAY_MEAL_TIME_MAP] ?: ""
-    }
-    val weekendMealTimeMapFlow: Flow<String> = dataStore.data.map {
-        it[PreferenceKeys.WEEKEND_MEAL_TIME_MAP] ?: ""
-    }
-    val weekdayDigitalLimitMapFlow: Flow<String> = dataStore.data.map {
-        it[PreferenceKeys.WEEKDAY_DIGITAL_LIMIT_MAP] ?: ""
-    }
-    val weekendDigitalLimitMapFlow: Flow<String> = dataStore.data.map {
-        it[PreferenceKeys.WEEKEND_DIGITAL_LIMIT_MAP] ?: ""
-    }
+
     val selectedDigitalPackagesFlow: Flow<Set<String>> = dataStore.data.map {
         parsePackageSet(it[PreferenceKeys.SELECTED_DIGITAL_PACKAGES] ?: "")
     }
@@ -63,15 +50,7 @@ class UserPreferenceManager @Inject constructor(
     val notificationFatigueScoreFlow: Flow<Float> = dataStore.data.map {
         it[PreferenceKeys.NOTIFICATION_FATIGUE_SCORE] ?: DEFAULT_NOTIFICATION_FATIGUE_SCORE
     }
-    val streakDaysFlow: Flow<Int> = dataStore.data.map {
-        it[PreferenceKeys.STREAK_DAYS] ?: DEFAULT_STREAK_DAYS
-    }
-    val sleepPrepWindowMinutesFlow: Flow<Int> = dataStore.data.map {
-        it[PreferenceKeys.SLEEP_PREP_WINDOW_MINUTES] ?: DEFAULT_SLEEP_PREP_WINDOW_MINUTES
-    }
-    val seasonalityProfileFlow: Flow<String> = dataStore.data.map {
-        it[PreferenceKeys.SEASONALITY_PROFILE] ?: ""
-    }
+
     val avatarGenderFlow: Flow<String> = dataStore.data.map {
         it[PreferenceKeys.AVATAR_GENDER] ?: DEFAULT_AVATAR_GENDER
     }
@@ -107,6 +86,71 @@ class UserPreferenceManager @Inject constructor(
     }
     val lastUserActivityAtFlow: Flow<Long?> = dataStore.data.map { it[PreferenceKeys.LAST_USER_ACTIVITY_AT] }
 
+    val userHeightCmFlow: Flow<Float> = dataStore.data.map { it[PreferenceKeys.USER_HEIGHT_CM] ?: 0f }
+    val userWeightKgFlow: Flow<Float> = dataStore.data.map { it[PreferenceKeys.USER_WEIGHT_KG] ?: 0f }
+    val userBmiFlow: Flow<Float> = dataStore.data.map { it[PreferenceKeys.USER_BMI] ?: 0f }
+
+    // ── 개인화 분석 결과 Flows ────────────────────────────────────────────────
+
+    val userChronotypeFlow: Flow<String> = dataStore.data.map {
+        it[PreferenceKeys.USER_CHRONOTYPE] ?: ""
+    }
+
+    // 카테고리별 개인화 게이트
+    val waterPersonalizationReadyFlow: Flow<Boolean> = dataStore.data.map {
+        it[PreferenceKeys.WATER_PERSONALIZATION_READY] ?: false
+    }
+    val mealPersonalizationReadyFlow: Flow<Boolean> = dataStore.data.map {
+        it[PreferenceKeys.MEAL_PERSONALIZATION_READY] ?: false
+    }
+    val stretchPersonalizationReadyFlow: Flow<Boolean> = dataStore.data.map {
+        it[PreferenceKeys.STRETCH_PERSONALIZATION_READY] ?: false
+    }
+    val digitalPersonalizationReadyFlow: Flow<Boolean> = dataStore.data.map {
+        it[PreferenceKeys.DIGITAL_PERSONALIZATION_READY] ?: false
+    }
+
+    // 식사 타입별 PeakWindow (null = 미분석)
+    val mealBreakfastPeakFlow: Flow<PeakWindow?> = dataStore.data.map {
+        PeakWindow.fromJson(it[PreferenceKeys.MEAL_BREAKFAST_PEAK_JSON] ?: "")
+    }
+    val mealLunchPeakFlow: Flow<PeakWindow?> = dataStore.data.map {
+        PeakWindow.fromJson(it[PreferenceKeys.MEAL_LUNCH_PEAK_JSON] ?: "")
+    }
+    val mealDinnerPeakFlow: Flow<PeakWindow?> = dataStore.data.map {
+        PeakWindow.fromJson(it[PreferenceKeys.MEAL_DINNER_PEAK_JSON] ?: "")
+    }
+    val mealLateNightPeakFlow: Flow<PeakWindow?> = dataStore.data.map {
+        PeakWindow.fromJson(it[PreferenceKeys.MEAL_LATE_NIGHT_PEAK_JSON] ?: "")
+    }
+
+    // 배달 앱 주문 주기 (-1f = 미확정)
+    val deliveryIntervalDaysFlow: Flow<Float?> = dataStore.data.map {
+        val v = it[PreferenceKeys.DELIVERY_INTERVAL_DAYS] ?: -1f
+        if (v < 0f) null else v
+    }
+
+    // 스트레칭
+    val stretchGoalCountFlow: Flow<Int> = dataStore.data.map {
+        it[PreferenceKeys.STRETCH_GOAL_COUNT] ?: DEFAULT_STRETCH_GOAL_COUNT
+    }
+    val stretchPreferredTimeSlotsFlow: Flow<String> = dataStore.data.map {
+        it[PreferenceKeys.STRETCH_PREFERRED_TIME_SLOTS_JSON] ?: ""
+    }
+
+    // 디지털 앱별 프로필 JSON
+    val perAppProfileJsonFlow: Flow<String> = dataStore.data.map {
+        it[PreferenceKeys.PER_APP_PROFILE_JSON] ?: ""
+    }
+
+    // 개인화 성숙도
+    val personalizationLevelFlow: Flow<Int> = dataStore.data.map {
+        it[PreferenceKeys.PERSONALIZATION_LEVEL] ?: 0
+    }
+    val totalActiveDaysFlow: Flow<Int> = dataStore.data.map {
+        it[PreferenceKeys.TOTAL_ACTIVE_DAYS] ?: 0
+    }
+
     // ── Update functions ─────────────────────────────────────────────────────
 
     suspend fun updateBedTime(value: String) {
@@ -133,28 +177,8 @@ class UserPreferenceManager @Inject constructor(
         dataStore.edit { it[PreferenceKeys.PREFERRED_MESSAGE_TONE] = value }
     }
 
-    suspend fun updateWeekdayWaterPeakHours(value: String) {
-        dataStore.edit { it[PreferenceKeys.WEEKDAY_WATER_PEAK_HOURS] = value }
-    }
-
-    suspend fun updateWeekendWaterPeakHours(value: String) {
-        dataStore.edit { it[PreferenceKeys.WEEKEND_WATER_PEAK_HOURS] = value }
-    }
-
-    suspend fun updateWeekdayMealTimeMap(value: String) {
-        dataStore.edit { it[PreferenceKeys.WEEKDAY_MEAL_TIME_MAP] = value }
-    }
-
-    suspend fun updateWeekendMealTimeMap(value: String) {
-        dataStore.edit { it[PreferenceKeys.WEEKEND_MEAL_TIME_MAP] = value }
-    }
-
-    suspend fun updateWeekdayDigitalLimitMap(value: String) {
-        dataStore.edit { it[PreferenceKeys.WEEKDAY_DIGITAL_LIMIT_MAP] = value }
-    }
-
-    suspend fun updateWeekendDigitalLimitMap(value: String) {
-        dataStore.edit { it[PreferenceKeys.WEEKEND_DIGITAL_LIMIT_MAP] = value }
+    suspend fun updateWaterPeakJson(value: String) {
+        dataStore.edit { it[PreferenceKeys.WATER_PEAK_JSON] = value }
     }
 
     suspend fun updateSelectedDigitalPackages(value: Set<String>) {
@@ -179,21 +203,11 @@ class UserPreferenceManager @Inject constructor(
         dataStore.edit { it[PreferenceKeys.NOTIFICATION_FATIGUE_SCORE] = value }
     }
 
-    suspend fun updateStreakDays(value: Int) {
-        dataStore.edit { it[PreferenceKeys.STREAK_DAYS] = value }
-    }
-
-    suspend fun updateSleepPrepWindowMinutes(value: Int) {
-        dataStore.edit { it[PreferenceKeys.SLEEP_PREP_WINDOW_MINUTES] = value }
-    }
-
-    suspend fun updateSeasonalityProfile(value: String) {
-        dataStore.edit { it[PreferenceKeys.SEASONALITY_PROFILE] = value }
-    }
 
     suspend fun updateAvatarGender(value: String) {
         dataStore.edit { it[PreferenceKeys.AVATAR_GENDER] = value }
     }
+
 
     suspend fun updateUserName(value: String) {
         dataStore.edit { it[PreferenceKeys.USER_NAME] = value }
@@ -231,6 +245,78 @@ class UserPreferenceManager @Inject constructor(
         dataStore.edit { it[PreferenceKeys.LAST_STRETCH_REMINDER_AT] = value }
     }
 
+    suspend fun updateBodyInfo(heightCm: Float, weightKg: Float) {
+        val bmi = if (heightCm > 0f) weightKg / ((heightCm / 100f) * (heightCm / 100f)) else 0f
+        dataStore.edit {
+            it[PreferenceKeys.USER_HEIGHT_CM] = heightCm
+            it[PreferenceKeys.USER_WEIGHT_KG] = weightKg
+            it[PreferenceKeys.USER_BMI] = bmi
+        }
+    }
+
+    // ── 개인화 분석 결과 update 함수 ─────────────────────────────────────────
+
+    suspend fun updateUserChronotype(value: String) {
+        dataStore.edit { it[PreferenceKeys.USER_CHRONOTYPE] = value }
+    }
+
+    suspend fun updateWaterPersonalizationReady(value: Boolean) {
+        dataStore.edit { it[PreferenceKeys.WATER_PERSONALIZATION_READY] = value }
+    }
+
+    suspend fun updateMealPersonalizationReady(value: Boolean) {
+        dataStore.edit { it[PreferenceKeys.MEAL_PERSONALIZATION_READY] = value }
+    }
+
+    suspend fun updateStretchPersonalizationReady(value: Boolean) {
+        dataStore.edit { it[PreferenceKeys.STRETCH_PERSONALIZATION_READY] = value }
+    }
+
+    suspend fun updateDigitalPersonalizationReady(value: Boolean) {
+        dataStore.edit { it[PreferenceKeys.DIGITAL_PERSONALIZATION_READY] = value }
+    }
+
+    suspend fun updateMealBreakfastPeak(peak: PeakWindow?) {
+        dataStore.edit { it[PreferenceKeys.MEAL_BREAKFAST_PEAK_JSON] = peak?.toJson() ?: "" }
+    }
+
+    suspend fun updateMealLunchPeak(peak: PeakWindow?) {
+        dataStore.edit { it[PreferenceKeys.MEAL_LUNCH_PEAK_JSON] = peak?.toJson() ?: "" }
+    }
+
+    suspend fun updateMealDinnerPeak(peak: PeakWindow?) {
+        dataStore.edit { it[PreferenceKeys.MEAL_DINNER_PEAK_JSON] = peak?.toJson() ?: "" }
+    }
+
+    suspend fun updateMealLateNightPeak(peak: PeakWindow?) {
+        dataStore.edit { it[PreferenceKeys.MEAL_LATE_NIGHT_PEAK_JSON] = peak?.toJson() ?: "" }
+    }
+
+    /** null = 배달 주기 미확정, 내부적으로 -1f 로 저장 */
+    suspend fun updateDeliveryIntervalDays(value: Float?) {
+        dataStore.edit { it[PreferenceKeys.DELIVERY_INTERVAL_DAYS] = value ?: -1f }
+    }
+
+    suspend fun updateStretchGoalCount(value: Int) {
+        dataStore.edit { it[PreferenceKeys.STRETCH_GOAL_COUNT] = value }
+    }
+
+    suspend fun updateStretchPreferredTimeSlots(json: String) {
+        dataStore.edit { it[PreferenceKeys.STRETCH_PREFERRED_TIME_SLOTS_JSON] = json }
+    }
+
+    suspend fun updatePerAppProfileJson(json: String) {
+        dataStore.edit { it[PreferenceKeys.PER_APP_PROFILE_JSON] = json }
+    }
+
+    suspend fun updatePersonalizationLevel(value: Int) {
+        dataStore.edit { it[PreferenceKeys.PERSONALIZATION_LEVEL] = value }
+    }
+
+    suspend fun updateTotalActiveDays(value: Int) {
+        dataStore.edit { it[PreferenceKeys.TOTAL_ACTIVE_DAYS] = value }
+    }
+
     suspend fun updateCategoryPriorityOrder(value: String) {
         dataStore.edit { it[PreferenceKeys.CATEGORY_PRIORITY_ORDER] = value }
     }
@@ -245,6 +331,32 @@ class UserPreferenceManager @Inject constructor(
                 preferences[PreferenceKeys.TODAY_ACTIVE_STARTED_AT] = nowMillis
             }
             preferences[PreferenceKeys.LAST_USER_ACTIVITY_AT] = nowMillis
+        }
+    }
+
+    suspend fun clearAllPersonalizationData() {
+        dataStore.edit { prefs ->
+            prefs[PreferenceKeys.WATER_PERSONALIZATION_READY] = false
+            prefs[PreferenceKeys.MEAL_PERSONALIZATION_READY] = false
+            prefs[PreferenceKeys.STRETCH_PERSONALIZATION_READY] = false
+            prefs[PreferenceKeys.DIGITAL_PERSONALIZATION_READY] = false
+            prefs[PreferenceKeys.TOTAL_ACTIVE_DAYS] = 0
+            prefs[PreferenceKeys.PERSONALIZATION_LEVEL] = 0
+            
+            prefs[PreferenceKeys.WATER_PEAK_JSON] = ""
+            
+            prefs[PreferenceKeys.MEAL_BREAKFAST_PEAK_JSON] = ""
+            prefs[PreferenceKeys.MEAL_LUNCH_PEAK_JSON] = ""
+            prefs[PreferenceKeys.MEAL_DINNER_PEAK_JSON] = ""
+            prefs[PreferenceKeys.MEAL_LATE_NIGHT_PEAK_JSON] = ""
+            
+            prefs[PreferenceKeys.DELIVERY_INTERVAL_DAYS] = -1f
+            prefs[PreferenceKeys.STRETCH_GOAL_COUNT] = 0
+            prefs[PreferenceKeys.STRETCH_PREFERRED_TIME_SLOTS_JSON] = ""
+            prefs[PreferenceKeys.PER_APP_PROFILE_JSON] = ""
+            
+            prefs[PreferenceKeys.USER_CHRONOTYPE] = ""
+            prefs[PreferenceKeys.NOTIFICATION_FATIGUE_SCORE] = 0.0f
         }
     }
 
@@ -281,11 +393,11 @@ class UserPreferenceManager @Inject constructor(
         const val DEFAULT_DIGITAL_INTERVENTION_COOLDOWN_MINUTES = 60
         const val DEFAULT_PREFERRED_MESSAGE_TONE = "EMPATHY"
         const val DEFAULT_NOTIFICATION_FATIGUE_SCORE = 0.0f
-        const val DEFAULT_STREAK_DAYS = 0
-        const val DEFAULT_SLEEP_PREP_WINDOW_MINUTES = 60
         const val DEFAULT_AVATAR_GENDER = "MALE"
         const val DEFAULT_USER_NAME = ""
         const val DEFAULT_DELIVERY_PACKAGES = "com.sample.baemin,com.sample.coupangeats"
         const val DEFAULT_CATEGORY_PRIORITY_ORDER = "MEAL,WATER,DIGITAL,STRETCH"
+        // 개인화 기본값
+        const val DEFAULT_STRETCH_GOAL_COUNT = 4
     }
 }

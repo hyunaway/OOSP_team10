@@ -23,6 +23,22 @@ class OnboardingViewModel @Inject constructor(
     var selectedGender by mutableStateOf(AvatarGender.MALE)
         private set
 
+    // 신체 정보
+    var heightText by mutableStateOf("")
+        private set
+
+    var weightText by mutableStateOf("")
+        private set
+
+    val isHeightValid: Boolean
+        get() = heightText.toFloatOrNull()?.let { it in HEIGHT_MIN_CM..HEIGHT_MAX_CM } ?: false
+
+    val isWeightValid: Boolean
+        get() = weightText.toFloatOrNull()?.let { it in WEIGHT_MIN_KG..WEIGHT_MAX_KG } ?: false
+
+    val isBodyInfoValid: Boolean
+        get() = isHeightValid && isWeightValid
+
     fun updateUserName(name: String) {
         userName = name
     }
@@ -31,13 +47,34 @@ class OnboardingViewModel @Inject constructor(
         selectedGender = gender
     }
 
+    fun updateHeight(value: String) {
+        heightText = value
+    }
+
+    fun updateWeight(value: String) {
+        weightText = value
+    }
+
     fun completeOnboarding(onComplete: () -> Unit) {
         viewModelScope.launch {
             val name = userName.trim().ifEmpty { "나" }
             userPreferenceManager.updateUserName(name)
             userPreferenceManager.updateAvatarGender(selectedGender.name)
+            // 신체 정보 저장 (값이 유효한 경우에만)
+            val height = heightText.toFloatOrNull()
+            val weight = weightText.toFloatOrNull()
+            if (height != null && weight != null) {
+                userPreferenceManager.updateBodyInfo(height, weight)
+            }
             userPreferenceManager.updateHasCompletedOnboarding(true)
             onComplete()
         }
+    }
+
+    companion object {
+        const val HEIGHT_MIN_CM = 120f
+        const val HEIGHT_MAX_CM = 250f
+        const val WEIGHT_MIN_KG = 30f
+        const val WEIGHT_MAX_KG = 250f
     }
 }

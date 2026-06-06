@@ -1,6 +1,7 @@
 package com.example.habittracker.domain.usecase.water
 
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.domain.analysis.PersonalizationResolver
 import com.example.habittracker.domain.model.WaterInterventionStatus
 import com.example.habittracker.domain.model.WaterShortageLevel
 import com.example.habittracker.domain.repository.WaterRepository
@@ -14,6 +15,7 @@ class CheckWaterInterventionNeededUseCase @Inject constructor(
     private val waterRepository: WaterRepository,
     private val userPreferenceManager: UserPreferenceManager,
     private val waterStatusCalculator: WaterStatusCalculator,
+    private val personalizationResolver: PersonalizationResolver,
 ) {
 
     suspend operator fun invoke(
@@ -34,13 +36,21 @@ class CheckWaterInterventionNeededUseCase @Inject constructor(
         val activeStartMinutes = minutesOfDay(activeStartedAt)
         val interventionStartMinutes = maxOf(wakeMinutes, activeStartMinutes)
 
+        // 개인화된 물 목표량 조회
+        val resolvedGoalMl = personalizationResolver.resolveWaterGoalMl()
+
+        // 오늘 요일 기준 주말 여부 판별
+        // 개인화된 물 피크 윈도우 조회
+        val waterPeak = personalizationResolver.resolveWaterPeakWindow()
+
         return waterStatusCalculator.calculate(
             wakeMinutes = interventionStartMinutes,
             bedMinutes = bedMinutes,
-            goalMl = status.goalMl,
+            goalMl = resolvedGoalMl,
             currentAmountMl = status.totalMl,
             lastDrankAt = status.lastDrankAt,
             nowMillis = nowMillis,
+            waterPeakWindow = waterPeak,
         )
     }
 

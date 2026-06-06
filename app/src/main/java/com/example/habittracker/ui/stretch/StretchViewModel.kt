@@ -5,7 +5,6 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.entity.StretchingRecord
-import com.example.habittracker.data.model.BodyPartType
 import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseCase
 import com.example.habittracker.util.NotificationHelper
 import com.example.habittracker.domain.repository.StretchRepository
@@ -68,35 +67,7 @@ class StretchViewModel @Inject constructor(
             try {
                 val date = java.time.LocalDate.now().toString()
                 
-                // 오늘 횟수 및 연속 스트릭 계산
-                val count = stretchRepository.getTodayStretchCount(date)
-                val streakVal = stretchRepository.calculateStreak(date)
-                
-                // 각 시간대별 버튼 상태 계산 (수정 4 구현)
-                val states = mutableMapOf<String, StretchButtonState>()
-                val slots = listOf("아침", "점심", "저녁", "기타")
-                
-                slots.forEach { slot ->
-                    val record = stretchRepository.getRecordByTimeSlot(date, slot)
-                    val state = when {
-                        count >= 4 -> StretchButtonState.DISABLED_COMPLETED
-                        record != null -> StretchButtonState.EDITABLE
-                        else -> StretchButtonState.INPUTTABLE
-                    }
-                    states[slot] = state
-                }
-                
-                // 50% 달성 여부 플래그 계산
-                val amEnabled = userPreferenceManager.stretchSlotAmEnabledFlow.first()
-                val pmEnabled = userPreferenceManager.stretchSlotPmEnabledFlow.first()
-                val eveEnabled = userPreferenceManager.stretchSlotEveEnabledFlow.first()
-                val nightEnabled = userPreferenceManager.stretchSlotNightEnabledFlow.first()
-                val activeSlotsCount = listOf(amEnabled, pmEnabled, eveEnabled, nightEnabled).count { it }
-                val isHalfGoalAchievedVal = if (activeSlotsCount > 0) {
-                    count >= (activeSlotsCount / 2.0)
-                } else {
-                    false
-                }
+                // 1. 먼저 오늘의 개인화 스트레칭 목표치를 계산합니다.
                 val todayActiveStartedAt = userPreferenceManager.todayActiveStartedAtFlow.first()
                 val personalizedGoalCount = todayActiveStartedAt
                     ?.let { activeStartedAt ->
@@ -106,6 +77,27 @@ class StretchViewModel @Inject constructor(
                         )
                     }
                     ?: 4
+                
+                // 2. 동적 목표치를 넘겨서 오늘 수행 횟수와 스트릭을 구합니다.
+                val count = stretchRepository.getTodayStretchCount(date)
+                val streakVal = stretchRepository.calculateStreak(date, personalizedGoalCount)
+                
+                // 3. 각 시간대별 버튼 상태 계산 (하드코딩 4 -> 동적 목표치 적용)
+                val states = mutableMapOf<String, StretchButtonState>()
+                val slots = listOf("아침", "점심", "저녁", "기타")
+                
+                slots.forEach { slot ->
+                    val record = stretchRepository.getRecordByTimeSlot(date, slot)
+                    val state = when {
+                        count >= personalizedGoalCount -> StretchButtonState.DISABLED_COMPLETED
+                        record != null -> StretchButtonState.EDITABLE
+                        else -> StretchButtonState.INPUTTABLE
+                    }
+                    states[slot] = state
+                }
+                
+                // 4. 50% 달성 여부 플래그 계산
+                val isHalfGoalAchievedVal = count >= (personalizedGoalCount / 2.0)
                 
                 _uiState.update { it.copy(
                     loading = false,
@@ -122,23 +114,24 @@ class StretchViewModel @Inject constructor(
         }
     }
 
-    // 시간대 버튼 클릭 분기 처리 (원터치 기록 및 4회 제한 정책 적용)
+    // 시간대 버튼 클릭 분기 처리 (원터치 기록 및 목표 도달 제한 정책 적용)
     fun handleTimeSlotTap(timeSlot: String) {
         viewModelScope.launch {
             try {
                 val date = java.time.LocalDate.now().toString()
                 val record = stretchRepository.getRecordByTimeSlot(date, timeSlot)
                 val todayCount = stretchRepository.getTodayStretchCount(date)
+                val goal = _uiState.value.personalizedGoalCount
                 
                 if (record != null) {
                     // 이미 완료된 기록 존재 -> 롤백 취소 여부를 묻는 팝업창 활성화
                     _showCancelConfirmPopup.value = record
                 } else {
-                    if (todayCount < 4) {
-                        // 기록 없고 오늘 횟수 < 4 -> 기본 부위("전신")로 즉시 추가 (원터치 기록)
-                        addStretchRecord(timeSlot, listOf("전신"))
+                    if (todayCount < goal) {
+                        // 기록 없고 오늘 횟수 < goal -> 즉시 추가 (원터치 기록)
+                        addStretchRecord(timeSlot)
                     } else {
-                        // 기록 없고 오늘 횟수 >= 4 -> 토스트 출력 및 입력 제한
+                        // 기록 없고 오늘 횟수 >= goal -> 토스트 출력 및 입력 제한
                         _toastMessage.value = "오늘 목표를 달성했어요!"
                     }
                 }
@@ -149,10 +142,10 @@ class StretchViewModel @Inject constructor(
     }
 
     // DB 연동 기록 및 삭제
-    fun addStretchRecord(timeSlot: String, bodyParts: List<String>) {
+    fun addStretchRecord(timeSlot: String) {
         viewModelScope.launch {
             try {
-                saveStretchRecord(timeSlot, bodyParts)
+                saveStretchRecord(timeSlot)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message) }
             }
@@ -176,7 +169,7 @@ class StretchViewModel @Inject constructor(
             }
             _uiState.update { it.copy(countdownSeconds = 0) }
             try {
-                saveStretchRecord(resolveCurrentTimeSlot(), listOf("전신"))
+                saveStretchRecord(resolveCurrentTimeSlot())
                 _uiState.update {
                     it.copy(
                         isStretching = false,
@@ -251,32 +244,24 @@ class StretchViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-    private suspend fun saveStretchRecord(timeSlot: String, bodyParts: List<String>) {
+    private suspend fun saveStretchRecord(timeSlot: String) {
         val date = java.time.LocalDate.now().toString()
-        val bodyPartsJson = toJsonBodyParts(bodyParts)
-        stretchRepository.insertStretchRecord(date, timeSlot, bodyPartsJson)
+        stretchRepository.insertStretchRecord(date, timeSlot)
         markUserActiveUseCase(MarkUserActiveUseCase.SOURCE_STRETCH_LOG)
         refreshData()
         WidgetUpdateHelper.updateAllWidgetsSync(context)
 
         // 50% 이상 달성 축하 알림 체크
         try {
-            val amEnabled = userPreferenceManager.stretchSlotAmEnabledFlow.first()
-            val pmEnabled = userPreferenceManager.stretchSlotPmEnabledFlow.first()
-            val eveEnabled = userPreferenceManager.stretchSlotEveEnabledFlow.first()
-            val nightEnabled = userPreferenceManager.stretchSlotNightEnabledFlow.first()
+            val goal = _uiState.value.personalizedGoalCount
+            val status = stretchRepository.getTodayStatus().first()
+            val completedCount = status.totalCount
 
-            val activeSlotsCount = listOf(amEnabled, pmEnabled, eveEnabled, nightEnabled).count { it }
-            if (activeSlotsCount > 0) {
-                val status = stretchRepository.getTodayStatus().first()
-                val completedCount = status.slotsLogged.size
-
-                if (completedCount >= (activeSlotsCount / 2.0)) {
-                    notificationHelper.sendStretchReminder(
-                        message = "오늘 스트레칭 목표를 달성하셨어요! 몸이 한결 가벼워졌을 거예요 ✨",
-                        trigger = "congrats"
-                    )
-                }
+            if (completedCount >= (goal / 2.0)) {
+                notificationHelper.sendStretchReminder(
+                    message = "오늘 스트레칭 목표를 달성하셨어요! 몸이 한결 가벼워졌을 거예요 ✨",
+                    trigger = "congrats"
+                )
             }
         } catch (_: Exception) {
             // 무시
@@ -293,9 +278,7 @@ class StretchViewModel @Inject constructor(
         }
     }
 
-    private fun toJsonBodyParts(parts: List<String>): String {
-        return parts.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
-    }
+
 
     override fun onCleared() {
         countdownJob?.cancel()

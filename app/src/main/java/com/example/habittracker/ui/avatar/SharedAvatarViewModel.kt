@@ -183,7 +183,7 @@ class SharedAvatarViewModel @Inject constructor(
         val today = LocalDate.now()
         val sevenDaysAgo = today.minusDays(6)
 
-        val summaries = stretchRepository.getLogsBetween(sevenDaysAgo.toString(), today.toString(), null).first()
+        val summaries = stretchRepository.getLogsBetween(sevenDaysAgo.toString(), today.toString()).first()
 
         val summariesByDate = summaries.associateBy {
             Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate().toString()

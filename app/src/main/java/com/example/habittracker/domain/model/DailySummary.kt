@@ -26,6 +26,5 @@ data class DailyDigitalSummary(
 data class DailyStretchSummary(
     val date: Long,
     val count: Int,
-    val dominantBodyPart: String?,
     val totalSeconds: Int,
 )

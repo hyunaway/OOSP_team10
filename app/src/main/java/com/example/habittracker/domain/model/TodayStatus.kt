@@ -29,8 +29,8 @@ data class DigitalTodayStatus(
 data class StretchTodayStatus(
     val totalCount: Int,
     val lastStretchAt: Long?,
-    val bodyPartMap: Map<String, Int>,
     val totalSeconds: Int,
     val avatarHealthScore: Float,
     val slotsLogged: List<String> = emptyList(),
+    val streak: Int = 0,
 )

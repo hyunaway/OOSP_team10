@@ -13,6 +13,7 @@ import com.example.habittracker.domain.usecase.digital.GetTodayDigitalStatusUseC
 import com.example.habittracker.domain.usecase.digital.LogDigitalInterventionUseCase
 import com.example.habittracker.domain.usecase.digital.ResolveDigitalInterventionActionUseCase
 import com.example.habittracker.domain.usecase.digital.SaveDigitalSessionUseCase
+import com.example.habittracker.domain.analysis.PersonalizationResolver
 import com.example.habittracker.util.NotificationHelper
 import com.example.habittracker.util.formatMinutes
 import com.example.habittracker.widget.WidgetUpdateHelper
@@ -33,6 +34,7 @@ class DigitalUsageWorker @AssistedInject constructor(
     private val logDigitalInterventionUseCase: LogDigitalInterventionUseCase,
     private val resolveDigitalInterventionActionUseCase: ResolveDigitalInterventionActionUseCase,
     private val notificationHelper: NotificationHelper,
+    private val personalizationResolver: PersonalizationResolver,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -66,39 +68,44 @@ class DigitalUsageWorker @AssistedInject constructor(
     }
 
     private suspend fun sendInterventionIfNeeded(selectedPackages: Set<String>) {
-        val thresholdMinutes = userPreferenceManager.digitalInterventionThresholdMinutesFlow
-            .first()
-            .coerceAtLeast(1)
+        val status = getTodayDigitalStatusUseCase().first()
+        val target = status.appUsageMap
+            .filterKeys { it in selectedPackages }
+            .map { (pkg, usage) ->
+                val appThreshold = personalizationResolver.resolveDigitalThresholdMinutes(pkg)
+                Triple(pkg, usage, appThreshold)
+            }
+            .filter { (_, usage, threshold) -> usage >= threshold }
+            .maxByOrNull { (_, usage, _) -> usage }
+            ?: return
+
+        val appPackage = target.first
+        val usageMinutes = target.second
+        val thresholdMinutes = target.third
+
         val cooldownMillis = userPreferenceManager.digitalInterventionCooldownMinutesFlow
             .first()
             .coerceAtLeast(1)
             .times(60_000L)
 
-        val status = getTodayDigitalStatusUseCase().first()
-        val target = status.appUsageMap
-            .filterKeys { it in selectedPackages }
-            .filterValues { it >= thresholdMinutes }
-            .maxByOrNull { it.value }
-            ?: return
-
         val now = System.currentTimeMillis()
-        val latestInterventionAt = getLatestDigitalInterventionTimestampUseCase(target.key)
+        val latestInterventionAt = getLatestDigitalInterventionTimestampUseCase(appPackage)
         if (latestInterventionAt != null && now - latestInterventionAt < cooldownMillis) return
 
         val messageTone = userPreferenceManager.preferredMessageToneFlow
             .first()
             .ifBlank { DEFAULT_MESSAGE_TONE }
         val interventionId = logDigitalInterventionUseCase(
-            appPackage = target.key,
-            triggerDuration = target.value,
+            appPackage = appPackage,
+            triggerDuration = usageMinutes,
             messageTone = messageTone,
             timestamp = now,
             actionType = ACTION_TYPE_NOTIFICATION,
         )
         val recommendedAction = resolveDigitalInterventionActionUseCase()
         notificationHelper.sendDigitalIntervention(
-            message = buildInterventionMessage(target.key, target.value, recommendedAction.message),
-            appPackage = target.key,
+            message = buildInterventionMessage(appPackage, usageMinutes, recommendedAction.message, messageTone),
+            appPackage = appPackage,
             interventionId = interventionId,
         )
     }
@@ -107,9 +114,21 @@ class DigitalUsageWorker @AssistedInject constructor(
         appPackage: String,
         totalMinutes: Int,
         recommendedMessage: String,
+        messageTone: String,
     ): String {
         val appName = resolveAppName(appPackage)
-        return "${appName}를 ${formatMinutes(totalMinutes)} 사용했어요. $recommendedMessage"
+        val baseMessage = "${appName}를 ${formatMinutes(totalMinutes)} 사용했어요. $recommendedMessage"
+        return applyMessageTone(baseMessage, messageTone)
+    }
+
+    private fun applyMessageTone(message: String, tone: String): String {
+        return when (tone.uppercase()) {
+            "PRAISE" -> "$message 지금까지 잘 참아온 스스로를 칭찬해 주세요! 조금만 더 힘내볼까요? 👏"
+            "HUMOR" -> "$message 스마트폰이 피곤해서 기절하기 일보직전이에요! 잠깐 쉬어주는 게 신상에 좋습니다. 🤭"
+            "CHALLENGE" -> "$message 오늘 스마트폰 사용 줄이기 도전 중이신가요? 지금 멈추면 도전에 성공할 확률이 올라갑니다! 🔥"
+            "EMPATHY" -> "$message 화면을 오래 보느라 눈이 많이 피로하셨죠? 잠깐 눈을 감고 휴식을 취해보세요. 🌿"
+            else -> message
+        }
     }
 
     private fun resolveAppName(appPackage: String): String {
