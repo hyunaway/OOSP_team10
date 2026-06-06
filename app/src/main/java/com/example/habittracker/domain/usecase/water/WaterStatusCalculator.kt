@@ -2,6 +2,7 @@ package com.example.habittracker.domain.usecase.water
 
 import com.example.habittracker.domain.model.WaterInterventionStatus
 import com.example.habittracker.domain.model.WaterShortageLevel
+import com.example.habittracker.domain.model.PeakWindow
 import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,8 +20,19 @@ class WaterStatusCalculator @Inject constructor() {
         nowMillis: Long,
         toleranceMl: Int = DEFAULT_TOLERANCE_ML,
         minimumIntervalMinutes: Int = DEFAULT_MIN_INTERVAL_MINUTES,
+        waterPeakWindow: PeakWindow? = null,
     ): WaterInterventionStatus {
         val currentMinutes = minutesOfDay(nowMillis)
+        
+        // 피크 시간대 범위 내에 있는지 판단
+        val isInsidePeak = waterPeakWindow?.let {
+            currentMinutes >= it.rangeStart && currentMinutes <= it.rangeEnd
+        } ?: false
+
+        // 피크 시간대인 경우 허용치와 재알림 대기 시간을 절반으로 축소
+        val resolvedTolerance = if (isInsidePeak) toleranceMl / 2 else toleranceMl
+        val resolvedMinInterval = if (isInsidePeak) minimumIntervalMinutes / 2 else minimumIntervalMinutes
+
         val activePosition = activePosition(wakeMinutes, bedMinutes, currentMinutes)
         val recommendedAmountMl = activePosition?.let {
             recommendedAmountMl(
@@ -34,14 +46,14 @@ class WaterStatusCalculator @Inject constructor() {
 
         val hasReachedGoal = currentAmountMl >= goalMl
         val isEnoughAfterLastDrink = lastDrankAt?.let {
-            nowMillis - it >= minimumIntervalMinutes * MILLIS_PER_MINUTE
+            nowMillis - it >= resolvedMinInterval * MILLIS_PER_MINUTE
         } ?: true
 
         val isNeedWater = activePosition != null &&
             activePosition.elapsedMinutes > 0 &&
             activePosition.elapsedMinutes < activePosition.durationMinutes &&
             !hasReachedGoal &&
-            shortageMl >= toleranceMl &&
+            shortageMl >= resolvedTolerance &&
             isEnoughAfterLastDrink
 
         return WaterInterventionStatus(
@@ -50,7 +62,7 @@ class WaterStatusCalculator @Inject constructor() {
             shortageMl = shortageMl,
             isNeedWater = isNeedWater,
             shortageLevel = shortageLevel,
-            message = messageFor(isNeedWater, shortageLevel),
+            message = messageFor(isNeedWater, shortageLevel, isInsidePeak),
         )
     }
 
@@ -133,8 +145,10 @@ class WaterStatusCalculator @Inject constructor() {
     private fun messageFor(
         isNeedWater: Boolean,
         shortageLevel: WaterShortageLevel,
+        isInsidePeak: Boolean = false,
     ): String {
         if (!isNeedWater) return "좋아요. 지금 물 섭취 리듬은 괜찮아요."
+        if (isInsidePeak) return "평소에 물을 자주 드시던 시간이에요! 건강을 위해 시원한 물 한 잔 어때요?"
         return when (shortageLevel) {
             WaterShortageLevel.LIGHT -> "물 한 잔 마시면 리듬이 딱 맞을 것 같아요."
             WaterShortageLevel.MEDIUM -> "목이 조금 마른 상태예요. 물 한 잔 어때요?"

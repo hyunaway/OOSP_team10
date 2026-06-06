@@ -83,7 +83,6 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                         ep.stretchRepository().insertStretchRecord(
                             date = LocalDate.now().toString(),
                             timeSlot = timeSlot,
-                            bodyParts = "[\"전신\"]",
                         )
                         ep.markUserActiveUseCase()("widget_stretch_log")
                         WidgetUpdateHelper.updateAllWidgets(context)
@@ -130,7 +129,6 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                                 ep.stretchRepository().insertStretchRecord(
                                     date = LocalDate.now().toString(),
                                     timeSlot = timeSlot,
-                                    bodyParts = "[\"전신\"]",
                                 )
                                 ep.markUserActiveUseCase()("widget_stretch_log")
                                 WidgetUpdateHelper.updateAllWidgets(context)

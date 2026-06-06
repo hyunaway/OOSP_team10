@@ -608,7 +608,7 @@ private fun StretchPage(
             )
             Spacer(modifier = Modifier.height(HabitSpacing.xs))
             Text(
-                text = "연속 달성 ${stretchStatus.totalCount}일째",
+                text = "연속 달성 ${stretchStatus.streak}일째",
                 style = MaterialTheme.typography.bodySmall,
                 color = HabitTextSecondary,
             )

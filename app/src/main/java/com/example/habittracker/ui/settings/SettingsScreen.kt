@@ -168,6 +168,59 @@ fun SettingsScreen(
                 }
             }
 
+            // 신체 정보 카드
+            var heightText by remember(uiState.userHeightCm) {
+                mutableStateOf(if (uiState.userHeightCm > 0f) uiState.userHeightCm.toInt().toString() else "")
+            }
+            var weightText by remember(uiState.userWeightKg) {
+                mutableStateOf(if (uiState.userWeightKg > 0f) uiState.userWeightKg.toInt().toString() else "")
+            }
+            SettingsCard(title = "신체 정보") {
+                Text(
+                    text = "물 섭취량 추천을 위해 사용해요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HabitTextSecondary,
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.sm))
+                OutlinedTextField(
+                    value = heightText,
+                    onValueChange = { v ->
+                        heightText = v
+                        v.toFloatOrNull()?.let { viewModel.updateHeight(it) }
+                    },
+                    label = { Text("키 (cm)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(HabitRadius.md),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = heightText.isNotEmpty() && (heightText.toFloatOrNull()?.let { it < 120f || it > 250f } ?: true),
+                    supportingText = {
+                        if (heightText.isNotEmpty() && (heightText.toFloatOrNull()?.let { it < 120f || it > 250f } ?: true)) {
+                            Text("120 ~ 250 cm 범위로 입력해주세요.")
+                        }
+                    },
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.sm))
+                OutlinedTextField(
+                    value = weightText,
+                    onValueChange = { v ->
+                        weightText = v
+                        v.toFloatOrNull()?.let { viewModel.updateWeight(it) }
+                    },
+                    label = { Text("몸무게 (kg)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(HabitRadius.md),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = weightText.isNotEmpty() && (weightText.toFloatOrNull()?.let { it < 30f || it > 250f } ?: true),
+                    supportingText = {
+                        if (weightText.isNotEmpty() && (weightText.toFloatOrNull()?.let { it < 30f || it > 250f } ?: true)) {
+                            Text("30 ~ 250 kg 범위로 입력해주세요.")
+                        }
+                    },
+                )
+            }
+
             SettingsCard(title = "대표 아바타 우선순위") {
                 Text(
                     text = "아바타에 먼저 표시될 습관 순서를 설정해요.",
@@ -367,6 +420,97 @@ fun SettingsScreen(
                 NotifToggleRow(label = "🧘 스트레칭", enabled = stretchNotifEnabled, onToggle = { stretchNotifEnabled = it })
                 NotifToggleRow(label = "📱 디지털", enabled = digitalNotifEnabled, onToggle = { digitalNotifEnabled = it })
             }
+
+            SettingsCard(title = "🛠 디버그 개인화 검증 (방법 A)") {
+                Text(
+                    text = "어제(6.4)까지의 가상 데이터를 DB에 주입하고 개인화 분석 파이프라인을 실행합니다. 오늘(6.5) 데이터는 빈 채로 유지되어 하루의 시작 시점을 재현합니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HabitTextSecondary,
+                )
+                Spacer(modifier = Modifier.height(HabitSpacing.sm))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(HabitSpacing.sm),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("💧 물 게이트: ${if (uiState.isWaterReady) "Ready ✅" else "Waiting ⏳"}", style = MaterialTheme.typography.bodySmall)
+                        Text("🍽 식사 게이트: ${if (uiState.isMealReady) "Ready ✅" else "Waiting ⏳"}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("🧘 스트레칭: ${if (uiState.isStretchReady) "Ready ✅" else "Waiting ⏳"}", style = MaterialTheme.typography.bodySmall)
+                        Text("📱 디지털: ${if (uiState.isDigitalReady) "Ready ✅" else "Waiting ⏳"}", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Spacer(modifier = Modifier.height(HabitSpacing.sm))
+
+                Text("🍽 식사 Peak 시간:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                Text("- 아침: ${uiState.resolvedBreakfastTime}  |  점심: ${uiState.resolvedLunchTime}", style = MaterialTheme.typography.bodySmall)
+                Text("- 저녁: ${uiState.resolvedDinnerTime}  |  야식: ${uiState.resolvedLateNightTime}", style = MaterialTheme.typography.bodySmall)
+                
+                Spacer(modifier = Modifier.height(HabitSpacing.xs))
+                Text("💧 물 개인화 상세:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                Text("- 일일 목표: ${uiState.resolvedWaterGoalMl}ml  |  알림 주기: ${uiState.resolvedWaterInterval}분", style = MaterialTheme.typography.bodySmall)
+                Text("- 피크: ${uiState.resolvedWaterPeak}", style = MaterialTheme.typography.bodySmall)
+
+                Spacer(modifier = Modifier.height(HabitSpacing.xs))
+                Text("🧘 스트레칭 개인화 상세:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                Text("- 일일 목표: ${uiState.resolvedStretchGoal}회  |  선호 시간대: ${uiState.resolvedStretchPreferredSlot}", style = MaterialTheme.typography.bodySmall)
+
+                Spacer(modifier = Modifier.height(HabitSpacing.xs))
+                Text("📱 디지털 개인화 상세:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                Text("- 유튜브 임계치: ${uiState.resolvedYoutubeThreshold}분 (평균 세션: ${String.format("%.1f", uiState.resolvedYoutubeAvgSession)}분의 80%)", style = MaterialTheme.typography.bodySmall)
+                Text("- 선호 톤: ${uiState.resolvedMessageTone}", style = MaterialTheme.typography.bodySmall)
+
+                Spacer(modifier = Modifier.height(HabitSpacing.md))
+
+                if (uiState.debugInfoText.isNotEmpty()) {
+                    Text(
+                        text = uiState.debugInfoText,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = HabitDeepMint,
+                    )
+                    Spacer(modifier = Modifier.height(HabitSpacing.sm))
+                }
+
+                Button(
+                    onClick = { viewModel.seedDebugData() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(HabitRadius.button),
+                    colors = ButtonDefaults.buttonColors(containerColor = HabitDeepMint),
+                ) {
+                    Text("1-A. 규칙 데이터 주입 (어제까지)", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(HabitSpacing.xs))
+                Button(
+                    onClick = { viewModel.seedIrregularDebugData() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(HabitRadius.button),
+                    colors = ButtonDefaults.buttonColors(containerColor = HabitDeepMint),
+                ) {
+                    Text("1-B. 불규칙 데이터 주입 (어제까지)", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(HabitSpacing.xs))
+                Button(
+                    onClick = { viewModel.runPersonalizationAnalysis() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(HabitRadius.button),
+                    colors = ButtonDefaults.buttonColors(containerColor = HabitDeepMint),
+                ) {
+                    Text("2. 개인화 분석 즉시 실행", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(HabitSpacing.xs))
+                OutlinedButton(
+                    onClick = { viewModel.clearAllData() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(HabitRadius.button),
+                ) {
+                    Text("데이터 전체 초기화", color = MaterialTheme.colorScheme.error)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(HabitSpacing.md))
 
             Button(
                 onClick = { viewModel.saveSettings() },

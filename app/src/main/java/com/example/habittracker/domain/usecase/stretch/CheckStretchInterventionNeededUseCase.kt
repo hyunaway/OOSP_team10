@@ -1,8 +1,10 @@
 package com.example.habittracker.domain.usecase.stretch
 
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.domain.analysis.PersonalizationResolver
 import com.example.habittracker.domain.model.StretchInterventionStatus
 import com.example.habittracker.domain.repository.StretchRepository
+import com.example.habittracker.util.TimeCalculationUtils
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -12,6 +14,7 @@ class CheckStretchInterventionNeededUseCase @Inject constructor(
     private val userPreferenceManager: UserPreferenceManager,
     private val stretchRepository: StretchRepository,
     private val calculatePersonalizedStretchGoalUseCase: CalculatePersonalizedStretchGoalUseCase,
+    private val personalizationResolver: PersonalizationResolver,
 ) {
 
     suspend operator fun invoke(
@@ -25,7 +28,7 @@ class CheckStretchInterventionNeededUseCase @Inject constructor(
         }
         val personalizedGoal = calculatePersonalizedStretchGoalUseCase(
             activeStartedAtMillis = activeStartedAt,
-            bedTime = bedTime,
+            bedTime               = bedTime,
         ) ?: return noNeed(goal = 0, todayCount = 0)
 
         val todayStatus = stretchRepository.getTodayStatus().first()
@@ -39,6 +42,29 @@ class CheckStretchInterventionNeededUseCase @Inject constructor(
                 minutesUntilNextRecommended = null,
             )
         }
+
+        // --- 개인화 선호 슬롯(Peak Slot) 체크 및 우회 로직 추가 ---
+        val todayDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(nowMillis))
+        val currentSlot = resolveSlotFromMillis(nowMillis)
+        val preferredSlot = personalizationResolver.resolveStretchPreferredSlot()
+
+        val isPreferredSlotActive = preferredSlot != null && preferredSlot == currentSlot
+        val hasStretchedInPreferredSlot = if (isPreferredSlotActive) {
+            stretchRepository.getRecordByTimeSlot(todayDate, currentSlot) != null
+        } else {
+            false
+        }
+
+        if (isPreferredSlotActive && !hasStretchedInPreferredSlot) {
+            return StretchInterventionStatus(
+                isNeedStretch = true,
+                message = "지금은 자주 스트레칭하시는 시간대예요! 가볍게 몸을 움직여볼까요?",
+                personalizedGoalCount = personalizedGoal,
+                todayCount = todayCount,
+                minutesUntilNextRecommended = null
+            )
+        }
+        // ------------------------------------------------------
 
         val lastReminderAt = userPreferenceManager.lastStretchReminderAtFlow.first()
         val reminderRemainingMinutes = remainingMinutesAfterInterval(
@@ -103,55 +129,24 @@ class CheckStretchInterventionNeededUseCase @Inject constructor(
         nowMillis: Long,
         bedTime: String,
     ): Boolean {
-        val activeStartMinutes = minutesOfDay(activeStartedAtMillis)
-        val nowMinutes = minutesOfDay(nowMillis)
-        val bedMinutes = parseBedTimeMinutes(bedTime) ?: MINUTES_PER_DAY
-        val activeDuration = minutesUntilBed(activeStartMinutes, bedMinutes)
-        val elapsedSinceActiveStart = minutesBetween(activeStartMinutes, nowMinutes)
+        val activeStartMinutes = TimeCalculationUtils.minutesOfDay(activeStartedAtMillis)
+        val nowMinutes = TimeCalculationUtils.minutesOfDay(nowMillis)
+        val bedMinutes = TimeCalculationUtils.parseBedTimeMinutes(bedTime) ?: MINUTES_PER_DAY
+        val activeDuration = TimeCalculationUtils.minutesUntilBed(activeStartMinutes, bedMinutes)
+        val elapsedSinceActiveStart = TimeCalculationUtils.minutesBetween(activeStartMinutes, nowMinutes)
         return elapsedSinceActiveStart >= activeDuration
     }
 
-    private fun minutesUntilBed(startMinutes: Int, bedMinutes: Int): Int {
-        val normalizedStart = normalizeMinutes(startMinutes)
-        val normalizedBed = if (bedMinutes == MINUTES_PER_DAY) {
-            MINUTES_PER_DAY
-        } else {
-            normalizeMinutes(bedMinutes)
-        }
-        if (normalizedBed == normalizedStart) return 0
-        return if (normalizedBed > normalizedStart) {
-            normalizedBed - normalizedStart
-        } else {
-            normalizedBed + MINUTES_PER_DAY - normalizedStart
-        }
-    }
-
-    private fun minutesBetween(startMinutes: Int, endMinutes: Int): Int {
-        val normalizedStart = normalizeMinutes(startMinutes)
-        val normalizedEnd = normalizeMinutes(endMinutes)
-        return if (normalizedEnd >= normalizedStart) {
-            normalizedEnd - normalizedStart
-        } else {
-            normalizedEnd + MINUTES_PER_DAY - normalizedStart
-        }
-    }
-
-    private fun minutesOfDay(timestampMillis: Long): Int {
+    private fun resolveSlotFromMillis(timestampMillis: Long): String {
         val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestampMillis }
-        return calendar.get(java.util.Calendar.HOUR_OF_DAY) * 60 + calendar.get(java.util.Calendar.MINUTE)
+        val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+        return when (hour) {
+            in 5..11 -> "아침"
+            in 12..16 -> "점심"
+            in 17..21 -> "저녁"
+            else -> "기타"
+        }
     }
-
-    private fun parseBedTimeMinutes(value: String): Int? {
-        val parts = value.split(":")
-        val hour = parts.getOrNull(0)?.toIntOrNull() ?: return null
-        val minute = parts.getOrNull(1)?.toIntOrNull() ?: return null
-        if (hour !in 0..24 || minute !in 0..59) return null
-        if (hour == 24 && minute != 0) return null
-        return if (hour == 0 && minute == 0) MINUTES_PER_DAY else hour * 60 + minute
-    }
-
-    private fun normalizeMinutes(minutes: Int): Int =
-        if (minutes == MINUTES_PER_DAY) 0 else minutes.mod(MINUTES_PER_DAY)
 
     private fun noNeed(
         goal: Int,

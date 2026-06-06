@@ -129,11 +129,13 @@ class DigitalRepositoryImpl @Inject constructor(
     }
 
     override fun getPatternAnalysis(): Flow<DigitalPatternResult> {
-        val thirtyDaysAgo = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-        val now = System.currentTimeMillis()
+        val zoneId = ZoneId.systemDefault()
+        val todayStart = LocalDate.now().atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val thirtyDaysAgoStart = LocalDate.now().minusDays(30).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val yesterdayEnd = todayStart - 1
         return combine(
-            digitalSessionDao.getAvgSessionByApp(thirtyDaysAgo, now),
-            digitalInterventionLogDao.getToneReactionRate(thirtyDaysAgo, now),
+            digitalSessionDao.getAvgSessionByApp(thirtyDaysAgoStart, yesterdayEnd),
+            digitalInterventionLogDao.getToneReactionRate(thirtyDaysAgoStart, yesterdayEnd),
         ) { avgSessions, toneRates ->
             DigitalPatternResult(
                 avgSessionByApp = avgSessions.associate { it.appPackage to it.avgDuration },

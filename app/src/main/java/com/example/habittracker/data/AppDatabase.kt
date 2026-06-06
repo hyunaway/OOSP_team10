@@ -30,7 +30,7 @@ import com.example.habittracker.data.local.room.dao.WaterDao
         StretchingRecord::class,
         NotificationActionLogEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 @TypeConverters(AppTypeConverters::class)

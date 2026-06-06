@@ -4,6 +4,8 @@ package com.example.habittracker.worker
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.habittracker.data.local.UserPreferenceManager
@@ -76,6 +78,22 @@ object WorkScheduler {
             .build()
         WorkManager.getInstance(context)
             .enqueueUniquePeriodicWork(TAG_PERSONALIZATION, ExistingPeriodicWorkPolicy.KEEP, request)
+    }
+
+    /**
+     * 신규 사용자의 "첫 게이트 통과" 시점에 즉시 1회 재분석 예약.
+     * KEEP 정책: 이미 대기 중인 즉시 실행이 있으면 중복 등록 방지.
+     */
+    fun scheduleImmediatePersonalization(context: Context) {
+        val request = OneTimeWorkRequestBuilder<PersonalizationWorker>()
+            .addTag(TAG_PERSONALIZATION)
+            .build()
+        WorkManager.getInstance(context)
+            .enqueueUniqueWork(
+                "${TAG_PERSONALIZATION}_immediate",
+                ExistingWorkPolicy.KEEP,
+                request,
+            )
     }
 
     fun scheduleDailySummary(context: Context) {

@@ -35,15 +35,7 @@ abstract class WaterDao {
     """)
     abstract fun getHourlyDistribution(start: Long, end: Long): Flow<List<HourlyCount>>
 
-    @Query("""
-        SELECT CAST(strftime('%w', datetime(timestamp/1000, 'unixepoch', 'localtime')) AS INTEGER) AS weekday,
-               COUNT(*) AS count
-        FROM water_logs
-        WHERE timestamp BETWEEN :start AND :end
-        GROUP BY weekday
-        ORDER BY weekday
-    """)
-    abstract fun getWeekdayPattern(start: Long, end: Long): Flow<List<WeekdayCount>>
+
 
     @Query("UPDATE water_logs SET amountMl = :amountMl WHERE id = :id")
     abstract suspend fun updateAmountById(id: Long, amountMl: Int): Int

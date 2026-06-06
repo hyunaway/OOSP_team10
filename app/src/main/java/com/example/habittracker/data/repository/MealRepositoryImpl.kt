@@ -34,6 +34,7 @@ class MealRepositoryImpl @Inject constructor(
         }
     }
 
+    //오늘 자정 시작 시간 계산(초 단위까지)
     private fun getTodayStartMillis(): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
@@ -124,17 +125,17 @@ class MealRepositoryImpl @Inject constructor(
     }
 
     override fun getPatternAnalysis(): Flow<MealPatternResult> {
-        val thirtyDaysAgo = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-        val now = System.currentTimeMillis()
+        val zoneId = ZoneId.systemDefault()
+        val todayStart = LocalDate.now().atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val thirtyDaysAgoStart = LocalDate.now().minusDays(30).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val yesterdayEnd = todayStart - 1
         return combine(
-            mealDao.getSkippedMealPattern(thirtyDaysAgo, now),
-            mealDao.getMealHourByType(MealType.DINNER.name, thirtyDaysAgo, now),
+            mealDao.getSkippedMealPattern(thirtyDaysAgoStart, yesterdayEnd),
+            mealDao.getMealHourByType(MealType.DINNER.name, thirtyDaysAgoStart, yesterdayEnd),
         ) { skipped, dinnerHours ->
             MealPatternResult(
                 lateNightRiskHour = dinnerHours.maxByOrNull { it.count }?.hour,
                 skippedMealPattern = skipped.associate { it.type to it.count },
-                weekdayMealTimeMap = emptyMap(),
-                weekendMealTimeMap = emptyMap(),
             )
         }
     }

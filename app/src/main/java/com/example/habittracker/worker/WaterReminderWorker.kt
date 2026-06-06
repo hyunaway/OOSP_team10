@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.WorkerParameters
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.domain.analysis.PersonalizationResolver
 import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
 import com.example.habittracker.util.NotificationHelper
 import com.example.habittracker.widget.WidgetUpdateHelper
@@ -17,9 +18,10 @@ class WaterReminderWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     userPreferenceManager: UserPreferenceManager,
+    personalizationResolver: PersonalizationResolver,
     private val notificationHelper: NotificationHelper,
     private val checkWaterInterventionNeededUseCase: CheckWaterInterventionNeededUseCase,
-) : BaseReminderWorker(context, params, userPreferenceManager) {
+) : BaseReminderWorker(context, params, userPreferenceManager, personalizationResolver) {
 
     override suspend fun doRemind(): Result {
         return try {

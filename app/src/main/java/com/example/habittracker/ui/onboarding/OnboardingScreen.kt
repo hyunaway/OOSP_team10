@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.habittracker.ui.avatar.AvatarGender
@@ -131,6 +133,54 @@ fun OnboardingScreen(
 
         Spacer(modifier = Modifier.height(HabitSpacing.xl))
 
+        // 신체 정보 입력 섹션
+        Text(
+            text = "기본 신체 정보를 입력해주세요",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = HabitTextPrimary,
+        )
+        Text(
+            text = "물 섭취량 추천을 위해 키와 몸무게를 사용해요.",
+            style = MaterialTheme.typography.bodySmall,
+            color = HabitTextSecondary,
+        )
+        Spacer(modifier = Modifier.height(HabitSpacing.sm))
+        OutlinedTextField(
+            value = viewModel.heightText,
+            onValueChange = { viewModel.updateHeight(it) },
+            label = { Text("키 (cm)") },
+            placeholder = { Text("예: 170", color = HabitTextSecondary) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(HabitRadius.md),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            isError = viewModel.heightText.isNotEmpty() && !viewModel.isHeightValid,
+            supportingText = {
+                if (viewModel.heightText.isNotEmpty() && !viewModel.isHeightValid) {
+                    Text("120 ~ 250 cm 범위로 입력해주세요.")
+                }
+            },
+        )
+        OutlinedTextField(
+            value = viewModel.weightText,
+            onValueChange = { viewModel.updateWeight(it) },
+            label = { Text("몸무게 (kg)") },
+            placeholder = { Text("예: 65", color = HabitTextSecondary) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(HabitRadius.md),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            isError = viewModel.weightText.isNotEmpty() && !viewModel.isWeightValid,
+            supportingText = {
+                if (viewModel.weightText.isNotEmpty() && !viewModel.isWeightValid) {
+                    Text("30 ~ 250 kg 범위로 입력해주세요.")
+                }
+            },
+        )
+
+        Spacer(modifier = Modifier.height(HabitSpacing.xl))
+
         Button(
             onClick = {
                 if (needsNotificationPermission(context)) {
@@ -139,6 +189,7 @@ fun OnboardingScreen(
                     viewModel.completeOnboarding(onComplete)
                 }
             },
+            enabled = viewModel.isBodyInfoValid,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
