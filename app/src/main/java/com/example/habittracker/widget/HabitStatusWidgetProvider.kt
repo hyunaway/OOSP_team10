@@ -1,4 +1,3 @@
-// 경로: com/example/habittracker/widget/HabitStatusWidgetProvider.kt
 package com.example.habittracker.widget
 
 import android.app.PendingIntent
@@ -7,17 +6,20 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.widget.RemoteViews
 import com.example.habittracker.MainActivity
 import com.example.habittracker.R
 import com.example.habittracker.data.AppDatabase
 import com.example.habittracker.data.entity.WaterLogEntity
+import com.example.habittracker.data.model.MealType
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
+import kotlinx.coroutines.flow.first
 
 class HabitStatusWidgetProvider : AppWidgetProvider() {
 
@@ -48,6 +50,28 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
+            ACTION_NEXT_CARD -> {
+                val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
+                if (widgetId != -1) {
+                    val count = intent.getIntExtra(EXTRA_CARD_COUNT, 4)
+                    val current = getCardIndex(context, widgetId)
+                    setCardIndex(context, widgetId, (current + 1) % count)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try { WidgetUpdateHelper.updateAllWidgets(context) } catch (_: Exception) {}
+                    }
+                }
+            }
+            ACTION_PREV_CARD -> {
+                val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
+                if (widgetId != -1) {
+                    val count = intent.getIntExtra(EXTRA_CARD_COUNT, 4)
+                    val current = getCardIndex(context, widgetId)
+                    setCardIndex(context, widgetId, (current - 1 + count) % count)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try { WidgetUpdateHelper.updateAllWidgets(context) } catch (_: Exception) {}
+                    }
+                }
+            }
             ACTION_ADD_WATER_250 -> {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
@@ -90,69 +114,100 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                     } catch (_: Exception) {}
                 }
             }
-            ACTION_CARD_CLICK -> {
-                val categoryName = intent.getStringExtra(EXTRA_CARD_CATEGORY) ?: return
-                val action = intent.getStringExtra(EXTRA_CARD_ACTION)
-                    ?: HabitWidgetRemoteViewsFactory.ACTION_NAVIGATE
-                when (action) {
-                    HabitWidgetRemoteViewsFactory.ACTION_ADD_WATER -> {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                val ep = EntryPointAccessors.fromApplication(
-                                    context.applicationContext,
-                                    WidgetDependenciesEntryPoint::class.java,
-                                )
-                                AppDatabase.getInstance(context).waterDao().insert(
-                                    WaterLogEntity(
-                                        timestamp = System.currentTimeMillis(),
-                                        amountMl = 250,
-                                        source = "widget",
-                                    )
-                                )
-                                ep.markUserActiveUseCase()("widget_water_log")
-                                WidgetUpdateHelper.updateAllWidgets(context)
-                            } catch (_: Exception) {}
+            ACTION_QUICK_LOG_MEAL -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val ep = EntryPointAccessors.fromApplication(
+                            context.applicationContext,
+                            WidgetDependenciesEntryPoint::class.java,
+                        )
+                        val mealStatus = ep.getCurrentMealInterventionStatusUseCase()()
+                        val mealType = mealStatus.actionableMealType
+                            ?: when (LocalTime.now().hour) {
+                                in 0..9   -> MealType.BREAKFAST
+                                in 10..15 -> MealType.LUNCH
+                                else      -> MealType.DINNER
+                            }
+                        val now = LocalTime.now()
+                        val recordedTime = "${now.hour.toString().padStart(2, '0')}:" +
+                            now.minute.toString().padStart(2, '0')
+                        ep.mealRepository().addLog(
+                            type = mealType,
+                            timestamp = System.currentTimeMillis(),
+                            isLateNight = false,
+                            viaDeliveryApp = false,
+                            source = "widget",
+                            mealDate = LocalDate.now().toString(),
+                            recordedTime = recordedTime,
+                            inputMethod = "widget_quick",
+                            triggerType = "widget",
+                        )
+                        ep.markUserActiveUseCase()("widget_meal_log")
+                        WidgetUpdateHelper.updateAllWidgets(context)
+                    } catch (_: Exception) {}
+                }
+            }
+            ACTION_MEAL_QUICK_RECORD -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val ep = EntryPointAccessors.fromApplication(
+                            context.applicationContext,
+                            WidgetDependenciesEntryPoint::class.java,
+                        )
+                        val mealType = when (LocalTime.now().hour) {
+                            in 0..9   -> MealType.BREAKFAST
+                            in 10..15 -> MealType.LUNCH
+                            else      -> MealType.DINNER
                         }
-                    }
-                    HabitWidgetRemoteViewsFactory.ACTION_ADD_STRETCH -> {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                val ep = EntryPointAccessors.fromApplication(
-                                    context.applicationContext,
-                                    WidgetDependenciesEntryPoint::class.java,
-                                )
-                                val timeSlot = when (LocalTime.now().hour) {
-                                    in 0..11 -> "아침"
-                                    in 12..17 -> "점심"
-                                    in 18..21 -> "저녁"
-                                    else -> "기타"
-                                }
-                                ep.stretchRepository().insertStretchRecord(
-                                    date = LocalDate.now().toString(),
-                                    timeSlot = timeSlot,
-                                    bodyParts = "[\"전신\"]",
-                                )
-                                ep.markUserActiveUseCase()("widget_stretch_log")
-                                WidgetUpdateHelper.updateAllWidgets(context)
-                            } catch (_: Exception) {}
+                        val todayMealStatus = ep.getTodayMealStatusUseCase()().first()
+                        val alreadyLogged = when (mealType) {
+                            MealType.BREAKFAST   -> todayMealStatus.breakfastLogged
+                            MealType.LUNCH       -> todayMealStatus.lunchLogged
+                            MealType.DINNER      -> todayMealStatus.dinnerLogged
+                            MealType.LATE_NIGHT  -> false
                         }
-                    }
-                    else -> {
-                        // NAVIGATE: 해당 카테고리 화면으로 이동
-                        val category = runCatching { WidgetHabitCategory.valueOf(categoryName) }
-                            .getOrDefault(WidgetHabitCategory.GOOD)
-                        val uri = deepLinkUri(category)
-                        if (uri != null) {
-                            launchDeepLink(context, uri)
-                        } else {
-                            context.startActivity(
-                                Intent(context, MainActivity::class.java).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
+                        if (!alreadyLogged) {
+                            val now = LocalTime.now()
+                            val recordedTime = "${now.hour.toString().padStart(2, '0')}:" +
+                                now.minute.toString().padStart(2, '0')
+                            ep.mealRepository().addLog(
+                                type = mealType,
+                                timestamp = System.currentTimeMillis(),
+                                isLateNight = false,
+                                viaDeliveryApp = false,
+                                source = "widget",
+                                mealDate = LocalDate.now().toString(),
+                                recordedTime = recordedTime,
+                                inputMethod = "widget_quick",
+                                triggerType = "widget",
                             )
+                            ep.markUserActiveUseCase()("widget_meal_log")
                         }
+                        WidgetUpdateHelper.updateAllWidgets(context)
+                    } catch (_: Exception) {}
+                }
+            }
+            ACTION_STRETCH_START_TIMER -> {
+                val prefs = context.getSharedPreferences(
+                    StretchTimerService.PREFS_STRETCH_TIMER, Context.MODE_PRIVATE)
+                val startedAt = prefs.getLong(StretchTimerService.KEY_TIMER_STARTED_AT, 0L)
+                val now = System.currentTimeMillis()
+                val alreadyRunning = startedAt > 0L &&
+                    (now - startedAt) < StretchTimerService.STRETCH_DURATION_MS
+                if (!alreadyRunning) {
+                    val serviceIntent = Intent(context, StretchTimerService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(serviceIntent)
+                    } else {
+                        context.startService(serviceIntent)
                     }
                 }
+            }
+            ACTION_STRETCH_TIMER_TICK -> {
+                WidgetUpdateHelper.updateAllWidgetsSync(context)
+            }
+            ACTION_OPEN_MEAL_EDIT -> {
+                launchDeepLink(context, Uri.parse("app://habittracker/meal?source=widget"))
             }
             ACTION_OPEN_STRETCH -> {
                 launchDeepLink(context, Uri.parse("app://habittracker/stretch?trigger=widget"))
@@ -198,24 +253,80 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        const val ACTION_ADD_WATER_250 = "com.example.habittracker.widget.ACTION_ADD_WATER_250"
-        const val ACTION_ADD_STRETCH_QUICK = "com.example.habittracker.widget.ACTION_ADD_STRETCH_QUICK"
-        const val ACTION_OPEN_STRETCH = "com.example.habittracker.widget.ACTION_OPEN_STRETCH"
-        const val ACTION_OPEN_APP = "com.example.habittracker.widget.ACTION_OPEN_APP"
-        const val ACTION_REFRESH_WIDGET = "com.example.habittracker.widget.ACTION_REFRESH_WIDGET"
-        const val ACTION_GO_TO_DOMINANT = "com.example.habittracker.widget.ACTION_GO_TO_DOMINANT"
-        const val ACTION_CARD_CLICK = "com.example.habittracker.widget.ACTION_CARD_CLICK"
+        const val ACTION_NEXT_CARD           = "com.example.habittracker.widget.ACTION_NEXT_CARD"
+        const val ACTION_PREV_CARD           = "com.example.habittracker.widget.ACTION_PREV_CARD"
+        const val ACTION_QUICK_LOG_MEAL      = "com.example.habittracker.widget.ACTION_QUICK_LOG_MEAL"
+        const val ACTION_MEAL_QUICK_RECORD   = "com.example.habittracker.widget.ACTION_MEAL_QUICK_RECORD"
+        const val ACTION_OPEN_MEAL_EDIT      = "com.example.habittracker.widget.ACTION_OPEN_MEAL_EDIT"
+        const val ACTION_ADD_WATER_250      = "com.example.habittracker.widget.ACTION_ADD_WATER_250"
+        const val ACTION_ADD_STRETCH_QUICK   = "com.example.habittracker.widget.ACTION_ADD_STRETCH_QUICK"
+        const val ACTION_OPEN_STRETCH        = "com.example.habittracker.widget.ACTION_OPEN_STRETCH"
+        const val ACTION_STRETCH_START_TIMER = "com.example.habittracker.widget.ACTION_STRETCH_START_TIMER"
+        const val ACTION_STRETCH_TIMER_TICK  = "com.example.habittracker.widget.ACTION_STRETCH_TIMER_TICK"
 
-        const val EXTRA_CARD_CATEGORY = "extra_card_category"
-        const val EXTRA_CARD_ACTION = "extra_card_action"
+        private const val COMPLETED_DISPLAY_MS = 300_000L  // 5분간 완료 상태 유지
+
+        fun getTimerState(context: Context): StretchTimerWidgetState {
+            val prefs = context.getSharedPreferences(
+                StretchTimerService.PREFS_STRETCH_TIMER, Context.MODE_PRIVATE)
+            val startedAt   = prefs.getLong(StretchTimerService.KEY_TIMER_STARTED_AT, 0L)
+            val completedAt = prefs.getLong(StretchTimerService.KEY_TIMER_COMPLETED_AT, 0L)
+            val now = System.currentTimeMillis()
+            if (startedAt > 0L) {
+                val remaining = ((StretchTimerService.STRETCH_DURATION_MS - (now - startedAt)) / 1_000L)
+                    .toInt().coerceAtLeast(0)
+                if (remaining > 0)
+                    return StretchTimerWidgetState(isRunning = true, remainingSeconds = remaining, isCompleted = false)
+            }
+            if (completedAt > 0L && now - completedAt < COMPLETED_DISPLAY_MS)
+                return StretchTimerWidgetState(isRunning = false, remainingSeconds = 0, isCompleted = true)
+            return StretchTimerWidgetState(isRunning = false, remainingSeconds = 60, isCompleted = false)
+        }
+
+        const val ACTION_OPEN_APP           = "com.example.habittracker.widget.ACTION_OPEN_APP"
+        const val ACTION_REFRESH_WIDGET     = "com.example.habittracker.widget.ACTION_REFRESH_WIDGET"
+        const val ACTION_GO_TO_DOMINANT     = "com.example.habittracker.widget.ACTION_GO_TO_DOMINANT"
+
+        const val EXTRA_CARD_COUNT = "extra_card_count"
+
+        private const val PREFS_FLIPPER = "widget_flipper"
+
+        fun getCardIndex(context: Context, widgetId: Int): Int =
+            context.getSharedPreferences(PREFS_FLIPPER, Context.MODE_PRIVATE)
+                .getInt("idx_$widgetId", 0)
+
+        fun setCardIndex(context: Context, widgetId: Int, index: Int) =
+            context.getSharedPreferences(PREFS_FLIPPER, Context.MODE_PRIVATE)
+                .edit().putInt("idx_$widgetId", index).apply()
+
+        fun nextCardPendingIntent(context: Context, widgetId: Int, count: Int): PendingIntent {
+            val intent = Intent(context, HabitStatusWidgetProvider::class.java).apply {
+                action = ACTION_NEXT_CARD
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                putExtra(EXTRA_CARD_COUNT, count)
+            }
+            return PendingIntent.getBroadcast(
+                context, 8000 + widgetId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
+        fun prevCardPendingIntent(context: Context, widgetId: Int, count: Int): PendingIntent {
+            val intent = Intent(context, HabitStatusWidgetProvider::class.java).apply {
+                action = ACTION_PREV_CARD
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                putExtra(EXTRA_CARD_COUNT, count)
+            }
+            return PendingIntent.getBroadcast(
+                context, 9000 + widgetId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
+        fun refreshPendingIntent(context: Context): PendingIntent =
+            broadcastPendingIntent(context, ACTION_REFRESH_WIDGET, 2006)
 
         fun attachPendingIntents(context: Context, views: RemoteViews) {
-            // 아바타 클릭 → 위젯 새로고침
-            views.setOnClickPendingIntent(
-                R.id.widget_avatar_image,
-                broadcastPendingIntent(context, ACTION_REFRESH_WIDGET, 2006),
-            )
-            // 레거시 hidden 뷰용
             views.setOnClickPendingIntent(
                 R.id.addWaterButton,
                 broadcastPendingIntent(context, ACTION_ADD_WATER_250, 2001),
@@ -242,32 +353,24 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
             )
         }
 
-        /**
-         * StackView 카드 클릭용 브로드캐스트 PendingIntent 템플릿.
-         * 각 카드 아이템의 fill-in Intent와 합쳐져 ACTION_CARD_CLICK으로 전달된다.
-         */
-        fun cardClickTemplateIntent(context: Context): PendingIntent =
-            broadcastPendingIntent(context, ACTION_CARD_CLICK, 3000)
-
-        /** 빠른 기록 버튼 (단일 카드 모드 호환) — 카테고리별 PendingIntent */
         fun quickActionPendingIntent(
             context: Context,
-            dominantCategory: WidgetHabitCategory,
+            dominantCategory: HabitCategory,
         ): PendingIntent {
             val action = when (dominantCategory) {
-                WidgetHabitCategory.WATER -> ACTION_ADD_WATER_250
-                WidgetHabitCategory.STRETCH -> ACTION_ADD_STRETCH_QUICK
-                else -> ACTION_GO_TO_DOMINANT
+                HabitCategory.WATER   -> ACTION_ADD_WATER_250
+                HabitCategory.STRETCH -> ACTION_ADD_STRETCH_QUICK
+                else                  -> ACTION_GO_TO_DOMINANT
             }
             return broadcastPendingIntent(context, action, 2007)
         }
 
-        private fun deepLinkUri(category: WidgetHabitCategory): Uri? = when (category) {
-            WidgetHabitCategory.MEAL -> Uri.parse("app://habittracker/meal?source=widget")
-            WidgetHabitCategory.WATER -> Uri.parse("app://habittracker/water?source=widget")
-            WidgetHabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?source=widget")
-            WidgetHabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?source=widget")
-            WidgetHabitCategory.GOOD -> null
+        private fun deepLinkUri(category: HabitCategory): Uri? = when (category) {
+            HabitCategory.MEAL    -> Uri.parse("app://habittracker/meal?source=widget")
+            HabitCategory.WATER   -> Uri.parse("app://habittracker/water?source=widget")
+            HabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?source=widget")
+            HabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?source=widget")
+            HabitCategory.GOOD    -> null
         }
 
         private fun launchDeepLink(context: Context, uri: Uri) {

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    StackView 카드 아이템 레이아웃
+    - widget_card_body 전체 클릭: 해당 카테고리 상세 화면으로 이동
+    - widget_card_btn 클릭: 빠른 기록 (물 / 스트레칭) 또는 앱 화면 이동 (식사 / 디지털)
+
+    [크기 통일 원칙]
+    gravity="center_vertical" 제거 → 콘텐츠는 항상 상단 앵커
+    layout_weight=1 스페이서 → 버튼은 항상 하단 앵커
+    4개 카드 모두 동일한 상단/하단 기준점 유지
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_card_body"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_card_item_background"
+    android:paddingLeft="@dimen/widget_padding_inner"
+    android:paddingRight="@dimen/widget_padding_inner"
+    android:paddingTop="@dimen/widget_padding_outer"
+    android:paddingBottom="@dimen/widget_padding_outer">
+
+    <!-- 상단 Row: 카테고리 아이콘 + 이름 칩 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/widget_card_icon"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:contentDescription=""
+            android:src="@drawable/widget_dot_meal" />
+
+        <TextView
+            android:id="@+id/widget_card_name"
+            style="@style/WidgetTextStyle.CategoryTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"
+            android:text="식사"
+            android:background="@drawable/widget_status_chip_background"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp" />
+
+    </LinearLayout>
+
+    <!-- 상태 메시지 (Bold, 오렌지) -->
+    <TextView
+        android:id="@+id/widget_card_status"
+        style="@style/WidgetTextStyle.StatusMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="오늘 습관 상태 좋아!"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <!-- 간단 설명 -->
+    <TextView
+        android:id="@+id/widget_card_desc"
+        style="@style/WidgetTextStyle.Description"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text=""
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <!-- MEAL 전용: 마지막 식사 시각 (비MEAL 카드에서는 gone) -->
+    <TextView
+        android:id="@+id/tv_last_meal_time"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="12sp"
+        android:textColor="@color/widget_text_sub"
+        android:visibility="gone" />
+
+    <!-- MEAL 전용: 오늘 끼니 기록 수 (비MEAL 카드에서는 gone) -->
+    <TextView
+        android:id="@+id/tv_meal_count"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="12sp"
+        android:textColor="@color/widget_text_sub"
+        android:visibility="gone" />
+
+    <!-- MEAL 전용: 끼니 진행 프로그레스 바 (비MEAL 카드에서는 gone) -->
+    <ProgressBar
+        android:id="@+id/pb_meal_progress"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:layout_marginTop="4dp"
+        android:max="3"
+        android:progressTint="@color/widget_accent_orange"
+        android:progressBackgroundTint="@color/widget_button_background"
+        android:visibility="gone" />
+
+    <!-- 스페이서: 남은 공간을 채워 버튼을 항상 하단에 고정
+         View는 RemoteViews에서 inflate 불가 → 빈 TextView로 대체 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="" />
+
+    <!-- 빠른 기록 / 이동 버튼 (하단 고정) -->
+    <TextView
+        android:id="@+id/widget_card_btn"
+        style="@style/WidgetTextStyle.ActionButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="기록하러 가기"
+        android:gravity="center"
+        android:background="@drawable/widget_button_background"
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp" />
+
+</LinearLayout>

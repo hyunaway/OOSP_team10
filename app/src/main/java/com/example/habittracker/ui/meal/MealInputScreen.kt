@@ -196,6 +196,13 @@ fun MealInputScreen(
         uiState.errorMessage?.let { msg ->
             Text(text = msg, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
         }
+        OutlinedButton(
+            onClick = { navController.popBackStack() },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(HabitRadius.button),
+        ) {
+            Text("뒤로 가기", color = HabitTextSecondary)
+        }
     }
 }
 

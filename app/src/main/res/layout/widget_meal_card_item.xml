@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_card_body"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="@drawable/widget_card_item_background"
+    android:paddingLeft="@dimen/widget_padding_inner"
+    android:paddingRight="@dimen/widget_padding_inner"
+    android:paddingTop="@dimen/widget_padding_outer"
+    android:paddingBottom="@dimen/widget_padding_outer">
+
+    <!-- 왼쪽 정보 영역 (60%): 세로 중앙 정렬 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="3"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_card_name"
+            style="@style/WidgetTextStyle.CategoryTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="식사" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/widget_card_status"
+            style="@style/WidgetTextStyle.StatusMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="식사 기록 필요"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+    </LinearLayout>
+
+    <!-- 오른쪽 버튼 영역 (40%): 세로 중앙 정렬 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="2"
+        android:layout_marginLeft="8dp"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_btn_eat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="먹었어요"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_button_background"
+            android:paddingLeft="4dp"
+            android:paddingRight="4dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/widget_btn_edit_meal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="수정하기"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_button_background"
+            android:paddingLeft="4dp"
+            android:paddingRight="4dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

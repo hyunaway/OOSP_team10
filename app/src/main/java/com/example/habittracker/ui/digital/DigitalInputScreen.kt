@@ -116,6 +116,13 @@ fun DigitalInputScreen(
         uiState.errorMessage?.let { msg ->
             Text(text = msg, color = MaterialTheme.colorScheme.error)
         }
+        OutlinedButton(
+            onClick = { navController.popBackStack() },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(HabitRadius.button),
+        ) {
+            Text("뒤로 가기", color = HabitTextSecondary)
+        }
     }
 }
 

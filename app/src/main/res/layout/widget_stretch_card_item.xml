@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_card_body"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="@drawable/widget_card_item_background"
+    android:paddingLeft="@dimen/widget_padding_inner"
+    android:paddingRight="@dimen/widget_padding_inner"
+    android:paddingTop="@dimen/widget_padding_outer"
+    android:paddingBottom="@dimen/widget_padding_outer">
+
+    <!-- 왼쪽 텍스트 영역 (60%): 카테고리명 / 상태 문구 / 보조 문구 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="3"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_card_name"
+            style="@style/WidgetTextStyle.CategoryTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="스트레칭" />
+
+        <TextView
+            android:id="@+id/widget_stretch_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="몸이 굳어가고 있어요"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/stretch_primary"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/widget_stretch_secondary"
+            style="@style/WidgetTextStyle.Description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="마지막 스트레칭 2시간 전"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+    </LinearLayout>
+
+    <!-- 오른쪽 버튼 영역 (40%): 스트레칭 단일 버튼 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="2"
+        android:layout_marginLeft="8dp"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_btn_stretch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="스트레칭"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_button_background"
+            android:paddingLeft="4dp"
+            android:paddingRight="4dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

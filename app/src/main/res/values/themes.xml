@@ -2,4 +2,11 @@
 <resources>
 
     <style name="Theme.HabitTracker" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.HabitTracker.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FFFDFB</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_transparent_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.HabitTracker</item>
+    </style>
+
 </resources>
