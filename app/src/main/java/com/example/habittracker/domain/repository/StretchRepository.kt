@@ -16,7 +16,7 @@ interface StretchRepository {
     // 신규 7대 DB 함수 인터페이스 추가
     suspend fun getTodayStretchCount(date: String): Int
     suspend fun getRecordByTimeSlot(date: String, timeSlot: String): StretchingRecord?
-    suspend fun insertStretchRecord(date: String, timeSlot: String)
+    suspend fun insertStretchRecord(date: String, timeSlot: String, bodyParts: String = "[\"전신\"]")
     suspend fun deleteStretchRecord(id: Int)
     suspend fun isGoalAchieved(date: String, goal: Int): Boolean
     suspend fun calculateStreak(today: String, goal: Int): Int

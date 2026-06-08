@@ -131,7 +131,7 @@ class StretchRepositoryImpl @Inject constructor(
         return stretchDao.getRecordByTimeSlot(date, timeSlot)
     }
 
-    override suspend fun insertStretchRecord(date: String, timeSlot: String) {
+    override suspend fun insertStretchRecord(date: String, timeSlot: String, bodyParts: String) {
         stretchDao.insertStretchRecord(date, timeSlot)
     }
 

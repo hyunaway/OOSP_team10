@@ -95,7 +95,7 @@ class MealRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateLog(id: Long, type: MealType) {
-        mealDao.updateTypeById(id, type.name)
+        mealDao.updateTypeById(id, type)
     }
 
     override suspend fun deleteLog(id: Long) {
