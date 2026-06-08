@@ -207,7 +207,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                 WidgetUpdateHelper.updateAllWidgetsSync(context)
             }
             ACTION_OPEN_MEAL_EDIT -> {
-                launchDeepLink(context, Uri.parse("app://habittracker/meal?source=widget"))
+                launchDeepLink(context, Uri.parse("app://habittracker/meal?type=&source=widget"))
             }
             ACTION_OPEN_STRETCH -> {
                 launchDeepLink(context, Uri.parse("app://habittracker/stretch?trigger=widget"))
@@ -366,10 +366,10 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
         }
 
         private fun deepLinkUri(category: HabitCategory): Uri? = when (category) {
-            HabitCategory.MEAL    -> Uri.parse("app://habittracker/meal?source=widget")
+            HabitCategory.MEAL    -> Uri.parse("app://habittracker/meal?type=&source=widget")
             HabitCategory.WATER   -> Uri.parse("app://habittracker/water?source=widget")
-            HabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?source=widget")
-            HabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?source=widget")
+            HabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?app=&interventionId=-1&source=widget")
+            HabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?trigger=widget")
             HabitCategory.GOOD    -> null
         }
 

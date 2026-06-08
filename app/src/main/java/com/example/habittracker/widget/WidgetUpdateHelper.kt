@@ -17,6 +17,7 @@ import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.digital.GetTodayDigitalStatusUseCase
 import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
 import com.example.habittracker.domain.usecase.meal.GetTodayMealStatusUseCase
+import com.example.habittracker.domain.usecase.stretch.CheckStretchInterventionNeededUseCase
 import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseCase
 import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
 import dagger.hilt.EntryPoint
@@ -330,10 +331,10 @@ object WidgetUpdateHelper {
 
     private fun navigatePendingIntent(context: Context, category: HabitCategory, requestCode: Int): PendingIntent {
         val uri = when (category) {
-            HabitCategory.MEAL    -> Uri.parse("app://habittracker/meal?source=widget")
+            HabitCategory.MEAL    -> Uri.parse("app://habittracker/meal?type=&source=widget")
             HabitCategory.WATER   -> Uri.parse("app://habittracker/water?source=widget")
-            HabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?source=widget")
-            HabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?source=widget")
+            HabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?app=&interventionId=-1&source=widget")
+            HabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?trigger=widget")
             HabitCategory.GOOD    -> null
         }
         val intent = if (uri != null) {
@@ -378,6 +379,7 @@ interface WidgetDependenciesEntryPoint {
     fun getTodayDigitalStatusUseCase(): GetTodayDigitalStatusUseCase
     fun getTodayMealStatusUseCase(): GetTodayMealStatusUseCase
     fun getCurrentMealInterventionStatusUseCase(): GetCurrentMealInterventionStatusUseCase
+    fun checkStretchInterventionNeededUseCase(): CheckStretchInterventionNeededUseCase
     fun getTodayStretchStatusUseCase(): GetTodayStretchStatusUseCase
     fun mealRepository(): MealRepository
     fun stretchRepository(): StretchRepository
