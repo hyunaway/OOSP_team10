@@ -27,6 +27,7 @@ data class StretchTimerWidgetState(
 data class StretchWidgetData(
     val lastStretchAtMillis: Long?,
     val totalCount: Int,
+    val personalizedGoalCount: Int = 5,
     val timerState: StretchTimerWidgetState,
 )
 

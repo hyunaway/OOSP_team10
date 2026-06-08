@@ -2,6 +2,7 @@ package com.example.habittracker.widget
 
 import android.content.Context
 import com.example.habittracker.R
+import com.example.habittracker.domain.model.WaterShortageLevel
 import com.example.habittracker.ui.avatar.AvatarGender
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
@@ -12,7 +13,6 @@ object WidgetResourceMapper {
 
     const val WATER_GOAL_ML = 2000
     const val STRETCH_GOAL_COUNT = 5
-    private const val DIGITAL_OVERUSE_THRESHOLD_MINUTES = 120
 
     val DEFAULT_PRIORITY_ORDER: List<HabitCategory> = listOf(
         HabitCategory.MEAL,
@@ -34,10 +34,16 @@ object WidgetResourceMapper {
         val waterStatus = ep.checkWaterInterventionNeededUseCase()()
         val digitalStatus = ep.getTodayDigitalStatusUseCase()().first()
         val stretchStatus = ep.getTodayStretchStatusUseCase()().first()
+        val stretchInterventionStatus = ep.checkStretchInterventionNeededUseCase()()
 
         val prefManager = ep.userPreferenceManager()
         val priorityOrder = parsePriorityOrder(prefManager.categoryPriorityOrderFlow.first())
         val gender = AvatarGender.fromString(prefManager.avatarGenderFlow.first())
+        val digitalThresholdMinutes = prefManager.digitalInterventionThresholdMinutesFlow
+            .first()
+            .coerceAtLeast(1)
+        val waterGoalMl = waterStatus.recommendedAmountMl.coerceAtLeast(1)
+        val stretchGoalCount = stretchInterventionStatus.personalizedGoalCount.coerceAtLeast(1)
 
         val todayMealRecordCount = listOf(
             todayMealStatus.breakfastLogged,
@@ -52,9 +58,9 @@ object WidgetResourceMapper {
         )
 
         val isMealRisk = mealStatus.isActionable
-        val isWaterRisk = waterStatus.currentAmountMl < WATER_GOAL_ML / 2
-        val isDigitalRisk = digitalStatus.totalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES
-        val isStretchRisk = stretchStatus.totalCount < STRETCH_GOAL_COUNT
+        val isWaterRisk = waterStatus.shortageLevel != WaterShortageLevel.NONE
+        val isDigitalRisk = digitalStatus.totalUsageMinutes > digitalThresholdMinutes
+        val isStretchRisk = stretchInterventionStatus.isNeedStretch
 
         val dominantCategory = resolveDominantCategory(
             isMealRisk = isMealRisk,
@@ -67,7 +73,8 @@ object WidgetResourceMapper {
         val stretchTimerState = HabitStatusWidgetProvider.getTimerState(context)
         val stretchWidgetData = StretchWidgetData(
             lastStretchAtMillis = stretchStatus.lastStretchAt,
-            totalCount          = stretchStatus.totalCount,
+            totalCount          = stretchInterventionStatus.todayCount,
+            personalizedGoalCount = stretchGoalCount,
             timerState          = stretchTimerState,
         )
 
@@ -75,10 +82,14 @@ object WidgetResourceMapper {
             isMealRisk = isMealRisk,
             isWaterRisk = isWaterRisk,
             waterTotalMl = waterStatus.currentAmountMl,
+            waterGoalMl = waterGoalMl,
+            waterShortageLevel = waterStatus.shortageLevel,
             isDigitalRisk = isDigitalRisk,
             digitalUsageMinutes = digitalStatus.totalUsageMinutes,
+            digitalThresholdMinutes = digitalThresholdMinutes,
             isStretchRisk = isStretchRisk,
-            stretchCount = stretchStatus.totalCount,
+            stretchCount = stretchInterventionStatus.todayCount,
+            stretchGoalCount = stretchGoalCount,
             mealWidgetData = mealWidgetData,
             stretchWidgetData = stretchWidgetData,
         ).sortedBy { card ->
@@ -144,10 +155,14 @@ object WidgetResourceMapper {
         isMealRisk: Boolean,
         isWaterRisk: Boolean,
         waterTotalMl: Int,
+        waterGoalMl: Int,
+        waterShortageLevel: WaterShortageLevel,
         isDigitalRisk: Boolean,
         digitalUsageMinutes: Int,
+        digitalThresholdMinutes: Int,
         isStretchRisk: Boolean,
         stretchCount: Int,
+        stretchGoalCount: Int,
         mealWidgetData: MealWidgetData,
         stretchWidgetData: StretchWidgetData,
     ): List<HabitCardState> = listOf(
@@ -166,42 +181,43 @@ object WidgetResourceMapper {
             category = HabitCategory.WATER,
             iconResId = R.drawable.widget_dot_water,
             statusLabel = if (isWaterRisk) "물을 마셔야 해요" else "물 섭취가 좋아요",
-            description = "${waterTotalMl}ml / ${WATER_GOAL_ML}ml",
+            description = "${waterTotalMl}ml / ${waterGoalMl}ml",
             actionLabel = "💧 +1잔 (250ml)",
-            riskLevel = when {
-                waterTotalMl < WATER_GOAL_ML / 4 -> RiskLevel.DANGER
-                isWaterRisk                       -> RiskLevel.WARNING
-                else                              -> RiskLevel.NORMAL
+            riskLevel = when (waterShortageLevel) {
+                WaterShortageLevel.SEVERE -> RiskLevel.DANGER
+                WaterShortageLevel.MEDIUM,
+                WaterShortageLevel.LIGHT -> RiskLevel.WARNING
+                WaterShortageLevel.NONE -> RiskLevel.NORMAL
             },
             isActionable = isWaterRisk,
-            waterData = WaterWidgetData(currentMl = waterTotalMl, goalMl = WATER_GOAL_ML),
+            waterData = WaterWidgetData(currentMl = waterTotalMl, goalMl = waterGoalMl),
         ),
         HabitCardState(
             category = HabitCategory.DIGITAL,
             iconResId = R.drawable.widget_dot_digital,
             statusLabel = when {
-                digitalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES * 3 / 2 -> "과사용"
-                digitalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES          -> "주의"
-                else                                                             -> "양호"
+                digitalUsageMinutes > digitalThresholdMinutes * 3 / 2 -> "과사용"
+                digitalUsageMinutes > digitalThresholdMinutes          -> "주의"
+                else                                                   -> "양호"
             },
             description = "${digitalUsageMinutes}분 사용",
             actionLabel = "📱 사용 기록 보기",
             riskLevel = when {
-                digitalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES * 3 / 2 -> RiskLevel.DANGER
-                digitalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES          -> RiskLevel.WARNING
-                else                                                             -> RiskLevel.NORMAL
+                digitalUsageMinutes > digitalThresholdMinutes * 3 / 2 -> RiskLevel.DANGER
+                digitalUsageMinutes > digitalThresholdMinutes          -> RiskLevel.WARNING
+                else                                                   -> RiskLevel.NORMAL
             },
             isActionable = false,
             digitalData = DigitalWidgetData(
                 usageMinutes = digitalUsageMinutes,
-                goalMinutes  = DIGITAL_OVERUSE_THRESHOLD_MINUTES,
+                goalMinutes  = digitalThresholdMinutes,
             ),
         ),
         HabitCardState(
             category = HabitCategory.STRETCH,
             iconResId = R.drawable.widget_dot_stretch,
             statusLabel = if (isStretchRisk) "스트레칭 부족" else "스트레칭 OK",
-            description = "${stretchCount}회 / ${STRETCH_GOAL_COUNT}회",
+            description = "${stretchCount}회 / ${stretchGoalCount}회",
             actionLabel = "🧘 완료",
             riskLevel = if (isStretchRisk) RiskLevel.WARNING else RiskLevel.NORMAL,
             isActionable = isStretchRisk,
