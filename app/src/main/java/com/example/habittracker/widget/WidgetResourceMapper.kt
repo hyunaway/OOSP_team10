@@ -1,126 +1,211 @@
-// 경로: com/example/habittracker/widget/WidgetResourceMapper.kt
 package com.example.habittracker.widget
 
+import android.content.Context
 import com.example.habittracker.R
-import com.example.habittracker.domain.model.WaterShortageLevel
+import com.example.habittracker.ui.avatar.AvatarGender
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.flow.first
+import java.time.Instant
+import java.time.ZoneId
 
 object WidgetResourceMapper {
 
     const val WATER_GOAL_ML = 2000
     const val STRETCH_GOAL_COUNT = 5
+    private const val DIGITAL_OVERUSE_THRESHOLD_MINUTES = 120
 
-    /** 기본 카테고리 우선순위: MEAL > WATER > DIGITAL > STRETCH */
-    val DEFAULT_PRIORITY_ORDER: List<WidgetHabitCategory> = listOf(
-        WidgetHabitCategory.MEAL,
-        WidgetHabitCategory.WATER,
-        WidgetHabitCategory.DIGITAL,
-        WidgetHabitCategory.STRETCH,
+    val DEFAULT_PRIORITY_ORDER: List<HabitCategory> = listOf(
+        HabitCategory.MEAL,
+        HabitCategory.WATER,
+        HabitCategory.DIGITAL,
+        HabitCategory.STRETCH,
     )
 
-    fun parsePriorityOrder(raw: String): List<WidgetHabitCategory> {
+    // ── 진입점: Context만으로 전체 상태를 빌드 ────────────────────────────────
+
+    suspend fun buildWidgetState(context: Context): HabitWidgetState {
+        val ep = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            WidgetDependenciesEntryPoint::class.java,
+        )
+
+        val mealStatus = ep.getCurrentMealInterventionStatusUseCase()()
+        val todayMealStatus = ep.getTodayMealStatusUseCase()().first()
+        val waterStatus = ep.checkWaterInterventionNeededUseCase()()
+        val digitalStatus = ep.getTodayDigitalStatusUseCase()().first()
+        val stretchStatus = ep.getTodayStretchStatusUseCase()().first()
+
+        val prefManager = ep.userPreferenceManager()
+        val priorityOrder = parsePriorityOrder(prefManager.categoryPriorityOrderFlow.first())
+        val gender = AvatarGender.fromString(prefManager.avatarGenderFlow.first())
+
+        val todayMealRecordCount = listOf(
+            todayMealStatus.breakfastLogged,
+            todayMealStatus.lunchLogged,
+            todayMealStatus.dinnerLogged,
+        ).count { it }
+        val mealWidgetData = MealWidgetData(
+            lastMealTime = todayMealStatus.lastMealAt?.let {
+                Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDateTime()
+            },
+            todayRecordCount = todayMealRecordCount,
+        )
+
+        val isMealRisk = mealStatus.isActionable
+        val isWaterRisk = waterStatus.currentAmountMl < WATER_GOAL_ML / 2
+        val isDigitalRisk = digitalStatus.totalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES
+        val isStretchRisk = stretchStatus.totalCount < STRETCH_GOAL_COUNT
+
+        val dominantCategory = resolveDominantCategory(
+            isMealRisk = isMealRisk,
+            isWaterRisk = isWaterRisk,
+            isDigitalRisk = isDigitalRisk,
+            isStretchRisk = isStretchRisk,
+            priorityOrder = priorityOrder,
+        )
+
+        val stretchTimerState = HabitStatusWidgetProvider.getTimerState(context)
+        val stretchWidgetData = StretchWidgetData(
+            lastStretchAtMillis = stretchStatus.lastStretchAt,
+            totalCount          = stretchStatus.totalCount,
+            timerState          = stretchTimerState,
+        )
+
+        val categoryCards = buildCategoryCards(
+            isMealRisk = isMealRisk,
+            isWaterRisk = isWaterRisk,
+            waterTotalMl = waterStatus.currentAmountMl,
+            isDigitalRisk = isDigitalRisk,
+            digitalUsageMinutes = digitalStatus.totalUsageMinutes,
+            isStretchRisk = isStretchRisk,
+            stretchCount = stretchStatus.totalCount,
+            mealWidgetData = mealWidgetData,
+            stretchWidgetData = stretchWidgetData,
+        ).sortedBy { card ->
+            priorityOrder.indexOf(card.category).takeIf { it >= 0 } ?: Int.MAX_VALUE
+        }
+
+        return HabitWidgetState(
+            dominantCategory = dominantCategory,
+            avatarResId = avatarResId(dominantCategory, gender),
+            categoryCards = categoryCards,
+        )
+    }
+
+    // ── dominantCategory 결정 ─────────────────────────────────────────────────
+
+    fun resolveDominantCategory(
+        isMealRisk: Boolean,
+        isWaterRisk: Boolean,
+        isDigitalRisk: Boolean,
+        isStretchRisk: Boolean,
+        priorityOrder: List<HabitCategory> = DEFAULT_PRIORITY_ORDER,
+    ): HabitCategory {
+        val riskMap = mapOf(
+            HabitCategory.MEAL to isMealRisk,
+            HabitCategory.WATER to isWaterRisk,
+            HabitCategory.DIGITAL to isDigitalRisk,
+            HabitCategory.STRETCH to isStretchRisk,
+        )
+        return priorityOrder.firstOrNull { riskMap[it] == true } ?: HabitCategory.GOOD
+    }
+
+    // ── 우선순위 문자열 파싱 (DataStore: "MEAL,WATER,DIGITAL,STRETCH") ─────────
+
+    fun parsePriorityOrder(raw: String): List<HabitCategory> {
         val parsed = raw.split(",")
-            .mapNotNull { name ->
-                runCatching { WidgetHabitCategory.valueOf(name.trim()) }.getOrNull()
-            }
-            .filter { it != WidgetHabitCategory.GOOD }
+            .mapNotNull { name -> runCatching { HabitCategory.valueOf(name.trim()) }.getOrNull() }
+            .filter { it != HabitCategory.GOOD }
         return parsed.ifEmpty { DEFAULT_PRIORITY_ORDER }
     }
 
-    fun speechBubbleText(category: WidgetHabitCategory): String = when (category) {
-        WidgetHabitCategory.MEAL -> "밥 먹을 시간이야! 오늘 식사는 챙겼어?"
-        WidgetHabitCategory.WATER -> "물 한 잔 마시면 컨디션이 좋아질 거야!"
-        WidgetHabitCategory.DIGITAL -> "눈이 피곤해 보여. 잠깐 쉬어볼까?"
-        WidgetHabitCategory.STRETCH -> "몸이 굳었어! 가볍게 기지개 켜볼까?"
-        WidgetHabitCategory.GOOD -> "오늘 습관 상태 좋아! 계속 유지해보자!"
-    }
+    // ── 아바타 리소스 매핑 ────────────────────────────────────────────────────
 
-    private fun goodText(category: WidgetHabitCategory): String = when (category) {
-        WidgetHabitCategory.MEAL -> "오늘 식사 잘 챙겼어!"
-        WidgetHabitCategory.WATER -> "수분 섭취 잘하고 있어!"
-        WidgetHabitCategory.DIGITAL -> "디지털 사용 양호해!"
-        WidgetHabitCategory.STRETCH -> "스트레칭 잘하고 있어!"
-        WidgetHabitCategory.GOOD -> "오늘 습관 상태 좋아! 계속 유지해보자!"
-    }
-
-    fun avatarResId(category: WidgetHabitCategory, gender: WidgetGender): Int = when (gender) {
-        WidgetGender.MALE -> when (category) {
-            WidgetHabitCategory.GOOD -> R.drawable.widget_avatar_male_good
-            WidgetHabitCategory.MEAL -> R.drawable.widget_avatar_male_meal_lack
-            WidgetHabitCategory.WATER -> R.drawable.widget_avatar_male_water_lack
-            WidgetHabitCategory.DIGITAL -> R.drawable.widget_avatar_male_digital_overuse
-            WidgetHabitCategory.STRETCH -> R.drawable.widget_avatar_male_stretch_lack
+    fun avatarResId(category: HabitCategory, gender: AvatarGender): Int = when (gender) {
+        AvatarGender.MALE -> when (category) {
+            HabitCategory.GOOD    -> R.drawable.widget_avatar_male_good
+            HabitCategory.MEAL    -> R.drawable.widget_avatar_male_meal_lack
+            HabitCategory.WATER   -> R.drawable.widget_avatar_male_water_lack
+            HabitCategory.DIGITAL -> R.drawable.widget_avatar_male_digital_overuse
+            HabitCategory.STRETCH -> R.drawable.widget_avatar_male_stretch_lack
         }
-        WidgetGender.FEMALE -> when (category) {
-            WidgetHabitCategory.GOOD -> R.drawable.widget_avatar_female_good
-            WidgetHabitCategory.MEAL -> R.drawable.widget_avatar_female_meal_lack
-            WidgetHabitCategory.WATER -> R.drawable.widget_avatar_female_water_lack
-            WidgetHabitCategory.DIGITAL -> R.drawable.widget_avatar_female_digital_overuse
-            WidgetHabitCategory.STRETCH -> R.drawable.widget_avatar_female_stretch_lack
+        AvatarGender.FEMALE -> when (category) {
+            HabitCategory.GOOD    -> R.drawable.widget_avatar_female_good
+            HabitCategory.MEAL    -> R.drawable.widget_avatar_female_meal_lack
+            HabitCategory.WATER   -> R.drawable.widget_avatar_female_water_lack
+            HabitCategory.DIGITAL -> R.drawable.widget_avatar_female_digital_overuse
+            HabitCategory.STRETCH -> R.drawable.widget_avatar_female_stretch_lack
         }
     }
 
-    fun resolveDominantCategory(
-        mealStatus: MealStatus,
-        waterShortageLevel: WaterShortageLevel,
-        isDigitalOveruse: Boolean,
-        stretchStatus: StretchStatus,
-        priorityOrder: List<WidgetHabitCategory> = DEFAULT_PRIORITY_ORDER,
-    ): WidgetHabitCategory {
-        val riskMap = mapOf(
-            WidgetHabitCategory.MEAL to (mealStatus == MealStatus.LACK),
-            WidgetHabitCategory.WATER to (waterShortageLevel != WaterShortageLevel.NONE),
-            WidgetHabitCategory.DIGITAL to isDigitalOveruse,
-            WidgetHabitCategory.STRETCH to (stretchStatus == StretchStatus.LACK),
-        )
-        return priorityOrder.firstOrNull { riskMap[it] == true } ?: WidgetHabitCategory.GOOD
-    }
+    // ── 카테고리 카드 빌드 ────────────────────────────────────────────────────
 
-    /** 카테고리별 WidgetHabitState 목록을 생성한다 (StackView 등 다중 항목 표시용). */
-    fun buildCategoryStates(
-        mealStatus: MealStatus,
-        waterShortageLevel: WaterShortageLevel,
+    private fun buildCategoryCards(
+        isMealRisk: Boolean,
+        isWaterRisk: Boolean,
         waterTotalMl: Int,
-        isDigitalOveruse: Boolean,
+        isDigitalRisk: Boolean,
         digitalUsageMinutes: Int,
-        stretchStatus: StretchStatus,
+        isStretchRisk: Boolean,
         stretchCount: Int,
-    ): List<WidgetHabitState> {
-        val mealRisk = mealStatus == MealStatus.LACK
-        val waterRisk = waterShortageLevel != WaterShortageLevel.NONE
-        val stretchRisk = stretchStatus == StretchStatus.LACK
-        return listOf(
-            WidgetHabitState(
-                category = WidgetHabitCategory.MEAL,
-                isRisk = mealRisk,
-                title = "식사",
-                message = if (mealRisk) speechBubbleText(WidgetHabitCategory.MEAL) else goodText(WidgetHabitCategory.MEAL),
-                description = if (mealRisk) "식사를 놓친 것 같아요" else "식사 기록 완료",
-                actionText = "식사 기록하기",
+        mealWidgetData: MealWidgetData,
+        stretchWidgetData: StretchWidgetData,
+    ): List<HabitCardState> = listOf(
+        HabitCardState(
+            category = HabitCategory.MEAL,
+            iconResId = R.drawable.widget_dot_meal,
+            statusLabel = if (isMealRisk) "식사 기록 필요" else "식사 OK",
+            description = if (isMealRisk) "식사를 놓친 것 같아요. 기록을 남겨 건강한 습관을 유지해요."
+                          else "오늘 식사 잘 챙겼어!",
+            actionLabel = "🍽 식사 기록하기",
+            riskLevel = if (isMealRisk) RiskLevel.WARNING else RiskLevel.NORMAL,
+            isActionable = mealWidgetData.todayRecordCount < mealWidgetData.targetMealCount,
+            mealData = mealWidgetData,
+        ),
+        HabitCardState(
+            category = HabitCategory.WATER,
+            iconResId = R.drawable.widget_dot_water,
+            statusLabel = if (isWaterRisk) "물을 마셔야 해요" else "물 섭취가 좋아요",
+            description = "${waterTotalMl}ml / ${WATER_GOAL_ML}ml",
+            actionLabel = "💧 +1잔 (250ml)",
+            riskLevel = when {
+                waterTotalMl < WATER_GOAL_ML / 4 -> RiskLevel.DANGER
+                isWaterRisk                       -> RiskLevel.WARNING
+                else                              -> RiskLevel.NORMAL
+            },
+            isActionable = isWaterRisk,
+            waterData = WaterWidgetData(currentMl = waterTotalMl, goalMl = WATER_GOAL_ML),
+        ),
+        HabitCardState(
+            category = HabitCategory.DIGITAL,
+            iconResId = R.drawable.widget_dot_digital,
+            statusLabel = when {
+                digitalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES * 3 / 2 -> "과사용"
+                digitalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES          -> "주의"
+                else                                                             -> "양호"
+            },
+            description = "${digitalUsageMinutes}분 사용",
+            actionLabel = "📱 사용 기록 보기",
+            riskLevel = when {
+                digitalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES * 3 / 2 -> RiskLevel.DANGER
+                digitalUsageMinutes > DIGITAL_OVERUSE_THRESHOLD_MINUTES          -> RiskLevel.WARNING
+                else                                                             -> RiskLevel.NORMAL
+            },
+            isActionable = false,
+            digitalData = DigitalWidgetData(
+                usageMinutes = digitalUsageMinutes,
+                goalMinutes  = DIGITAL_OVERUSE_THRESHOLD_MINUTES,
             ),
-            WidgetHabitState(
-                category = WidgetHabitCategory.WATER,
-                isRisk = waterRisk,
-                title = "수분",
-                message = if (waterRisk) speechBubbleText(WidgetHabitCategory.WATER) else goodText(WidgetHabitCategory.WATER),
-                description = "${waterTotalMl}ml / ${WATER_GOAL_ML}ml",
-                actionText = "물 마시기",
-            ),
-            WidgetHabitState(
-                category = WidgetHabitCategory.DIGITAL,
-                isRisk = isDigitalOveruse,
-                title = "디지털",
-                message = if (isDigitalOveruse) speechBubbleText(WidgetHabitCategory.DIGITAL) else goodText(WidgetHabitCategory.DIGITAL),
-                description = "${digitalUsageMinutes}분 사용",
-                actionText = "사용 기록 보기",
-            ),
-            WidgetHabitState(
-                category = WidgetHabitCategory.STRETCH,
-                isRisk = stretchRisk,
-                title = "스트레칭",
-                message = if (stretchRisk) speechBubbleText(WidgetHabitCategory.STRETCH) else goodText(WidgetHabitCategory.STRETCH),
-                description = "${stretchCount}회 / ${STRETCH_GOAL_COUNT}회",
-                actionText = "스트레칭하기",
-            ),
-        )
-    }
+        ),
+        HabitCardState(
+            category = HabitCategory.STRETCH,
+            iconResId = R.drawable.widget_dot_stretch,
+            statusLabel = if (isStretchRisk) "스트레칭 부족" else "스트레칭 OK",
+            description = "${stretchCount}회 / ${STRETCH_GOAL_COUNT}회",
+            actionLabel = "🧘 완료",
+            riskLevel = if (isStretchRisk) RiskLevel.WARNING else RiskLevel.NORMAL,
+            isActionable = isStretchRisk,
+            stretchData = stretchWidgetData,
+        ),
+    )
 }

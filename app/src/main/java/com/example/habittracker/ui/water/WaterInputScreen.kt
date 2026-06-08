@@ -106,10 +106,16 @@ fun WaterInputScreen(
                     pendingAmountMl = amount
                 }
             },
-            onBack = { navController.popBackStack() },
         )
         uiState.errorMessage?.let { msg ->
             Text(text = msg, color = MaterialTheme.colorScheme.error)
+        }
+        OutlinedButton(
+            onClick = { navController.popBackStack() },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(HabitRadius.button),
+        ) {
+            Text("뒤로 가기", color = HabitTextSecondary)
         }
     }
 
@@ -236,7 +242,6 @@ private fun WaterQuickAddCard(
     onCustomAmountChange: (String) -> Unit,
     onAdd: (Int) -> Unit,
     onCustomAdd: () -> Unit,
-    onBack: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -291,13 +296,6 @@ private fun WaterQuickAddCard(
                 colors = ButtonDefaults.buttonColors(containerColor = WaterPrimary),
             ) {
                 Text("직접 입력", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(HabitRadius.button),
-            ) {
-                Text("나중에", color = HabitTextSecondary)
             }
         }
     }
