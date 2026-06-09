@@ -79,7 +79,6 @@ class StretchTimerService : Service() {
                         ep.stretchRepository().insertStretchRecord(
                             date = LocalDate.now().toString(),
                             timeSlot = timeSlot,
-                            bodyParts = "[\"전신\"]",
                         )
                         ep.markUserActiveUseCase()("widget_stretch_timer")
                         WidgetUpdateHelper.updateAllWidgets(this@StretchTimerService)

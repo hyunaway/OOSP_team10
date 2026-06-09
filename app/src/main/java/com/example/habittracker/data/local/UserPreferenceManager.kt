@@ -254,6 +254,18 @@ class UserPreferenceManager @Inject constructor(
         }
     }
 
+    suspend fun saveOnboardingData(name: String, gender: String, heightCm: Float, weightKg: Float) {
+        val bmi = if (heightCm > 0f) weightKg / ((heightCm / 100f) * (heightCm / 100f)) else 0f
+        dataStore.edit {
+            it[PreferenceKeys.USER_NAME] = name
+            it[PreferenceKeys.AVATAR_GENDER] = gender
+            it[PreferenceKeys.USER_HEIGHT_CM] = heightCm
+            it[PreferenceKeys.USER_WEIGHT_KG] = weightKg
+            it[PreferenceKeys.USER_BMI] = bmi
+            it[PreferenceKeys.HAS_ONBOARDING_COMPLETED] = true
+        }
+    }
+
     // ── 개인화 분석 결과 update 함수 ─────────────────────────────────────────
 
     suspend fun updateUserChronotype(value: String) {

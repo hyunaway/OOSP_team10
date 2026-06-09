@@ -58,15 +58,14 @@ class OnboardingViewModel @Inject constructor(
     fun completeOnboarding(onComplete: () -> Unit) {
         viewModelScope.launch {
             val name = userName.trim().ifEmpty { "나" }
-            userPreferenceManager.updateUserName(name)
-            userPreferenceManager.updateAvatarGender(selectedGender.name)
-            // 신체 정보 저장 (값이 유효한 경우에만)
-            val height = heightText.toFloatOrNull()
-            val weight = weightText.toFloatOrNull()
-            if (height != null && weight != null) {
-                userPreferenceManager.updateBodyInfo(height, weight)
-            }
-            userPreferenceManager.updateHasCompletedOnboarding(true)
+            val height = heightText.toFloatOrNull() ?: 0f
+            val weight = weightText.toFloatOrNull() ?: 0f
+            userPreferenceManager.saveOnboardingData(
+                name = name,
+                gender = selectedGender.name,
+                heightCm = height,
+                weightKg = weight
+            )
             onComplete()
         }
     }
