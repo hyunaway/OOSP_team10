@@ -21,7 +21,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+// [DEBUG ONLY] 배포 시 아래 DebugDataSeeder 임포트 삭제
+import com.example.habittracker.data.DebugDataSeeder
+// [END OF DEBUG ONLY]
+import com.example.habittracker.domain.usecase.personalization.UpdatePersonalizationParamsUseCase
+import com.example.habittracker.domain.analysis.PersonalizationResolver
 import javax.inject.Inject
 
 @HiltViewModel
@@ -29,6 +35,11 @@ class SettingsViewModel @Inject constructor(
     application: Application,
     private val userPreferenceManager: UserPreferenceManager,
     private val usageStatsHelper: UsageStatsHelper,
+    // [DEBUG ONLY] 배포 시 아래 debugDataSeeder 의존성 삭제
+    private val debugDataSeeder: DebugDataSeeder,
+    // [END OF DEBUG ONLY]
+    private val updatePersonalizationParamsUseCase: UpdatePersonalizationParamsUseCase,
+    private val personalizationResolver: PersonalizationResolver,
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -69,12 +80,90 @@ class SettingsViewModel @Inject constructor(
                     val parsed = order.split(",").map { it.trim() }.filter { it.isNotBlank() }
                     state.copy(categoryPriorityOrder = parsed.ifEmpty { listOf("MEAL", "WATER", "DIGITAL", "STRETCH") })
                 }
+                .combine(userPreferenceManager.userHeightCmFlow) { state, height ->
+                    state.copy(userHeightCm = height)
+                }
+                .combine(userPreferenceManager.userWeightKgFlow) { state, weight ->
+                    state.copy(userWeightKg = weight)
+                }
+                .combine(userPreferenceManager.waterPersonalizationReadyFlow) { state, _ -> state }
+                .combine(userPreferenceManager.mealPersonalizationReadyFlow) { state, _ -> state }
+                .combine(userPreferenceManager.stretchPersonalizationReadyFlow) { state, _ -> state }
+                .combine(userPreferenceManager.digitalPersonalizationReadyFlow) { state, _ -> state }
+                .combine(userPreferenceManager.waterPeakJsonFlow) { state, _ -> state }
+                .combine(userPreferenceManager.mealBreakfastPeakFlow) { state, _ -> state }
+                .combine(userPreferenceManager.mealLunchPeakFlow) { state, _ -> state }
+                .combine(userPreferenceManager.mealDinnerPeakFlow) { state, _ -> state }
+                .combine(userPreferenceManager.mealLateNightPeakFlow) { state, _ -> state }
+                .combine(userPreferenceManager.stretchGoalCountFlow) { state, _ -> state }
+                .combine(userPreferenceManager.stretchPreferredTimeSlotsFlow) { state, _ -> state }
+                .combine(userPreferenceManager.perAppProfileJsonFlow) { state, _ -> state }
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
                 .collect { state ->
+                    val waterReady = userPreferenceManager.waterPersonalizationReadyFlow.first()
+                    val mealReady = userPreferenceManager.mealPersonalizationReadyFlow.first()
+                    val stretchReady = userPreferenceManager.stretchPersonalizationReadyFlow.first()
+                    val digitalReady = userPreferenceManager.digitalPersonalizationReadyFlow.first()
+
+                    val bPeak = personalizationResolver.resolveBreakfastPeakMinutes()
+                    val lPeak = personalizationResolver.resolveLunchPeakMinutes()
+                    val dPeak = personalizationResolver.resolveDinnerPeakMinutes()
+                    val lnPeak = personalizationResolver.resolveLateNightPeakMinutes()
+                    val sGoal = personalizationResolver.resolveStretchGoalCount()
+                    val resolvedWaterGoal = personalizationResolver.resolveWaterGoalMl()
+                    val resolvedTone = userPreferenceManager.preferredMessageToneFlow.first()
+
+                    val waterInterval = userPreferenceManager.waterReminderIntervalMinutesFlow.first()
+                    
+                    val waterPeakObj = personalizationResolver.resolveWaterPeakWindow()
+                    val waterPeakStr = waterPeakObj?.let {
+                        val startH = it.rangeStart / 60
+                        val startM = it.rangeStart % 60
+                        val endH = it.rangeEnd / 60
+                        val endM = it.rangeEnd % 60
+                        String.format("%02d:%02d ~ %02d:%02d (신뢰도: %.2f)", startH, startM, endH, endM, it.concentration)
+                    } ?: "패턴 없음"
+
+                    val stretchPrefSlot = personalizationResolver.resolveStretchPreferredSlot() ?: "없음"
+
+                    val youtubeThreshold = personalizationResolver.resolveDigitalThresholdMinutes("com.google.android.youtube")
+                    var youtubeAvg = 0f
+                    try {
+                        val json = userPreferenceManager.perAppProfileJsonFlow.first()
+                        if (json.isNotBlank()) {
+                            com.example.habittracker.domain.model.AppProfile.listFromJson(json)
+                                .find { it.packageName == "com.google.android.youtube" }
+                                ?.let { youtubeAvg = it.avgSessionMinutes }
+                        }
+                    } catch (_: Exception) {}
+
+                    fun formatMinutes(minutes: Int): String {
+                        val h = minutes / 60
+                        val m = minutes % 60
+                        return String.format("%02d:%02d", h, m)
+                    }
+
                     val current = _uiState.value
                     _uiState.value = state.copy(
                         notificationPermissionGranted = current.notificationPermissionGranted,
                         usageAccessGranted = current.usageAccessGranted,
+                        isWaterReady = waterReady,
+                        isMealReady = mealReady,
+                        isStretchReady = stretchReady,
+                        isDigitalReady = digitalReady,
+                        resolvedBreakfastTime = formatMinutes(bPeak),
+                        resolvedLunchTime = formatMinutes(lPeak),
+                        resolvedDinnerTime = formatMinutes(dPeak),
+                        resolvedLateNightTime = formatMinutes(lnPeak),
+                        resolvedStretchGoal = sGoal,
+                        resolvedWaterGoalMl = resolvedWaterGoal,
+                        resolvedWaterInterval = waterInterval,
+                        resolvedWaterPeak = waterPeakStr,
+                        resolvedStretchPreferredSlot = stretchPrefSlot,
+                        resolvedYoutubeThreshold = youtubeThreshold,
+                        resolvedYoutubeAvgSession = youtubeAvg,
+                        resolvedMessageTone = resolvedTone,
+                        debugInfoText = current.debugInfoText
                     )
                     refreshPermissionStates()
                 }
@@ -135,6 +224,14 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(userName = name, isSaved = false) }
     }
 
+    fun updateHeight(value: Float) {
+        _uiState.update { it.copy(userHeightCm = value, isSaved = false) }
+    }
+
+    fun updateWeight(value: Float) {
+        _uiState.update { it.copy(userWeightKg = value, isSaved = false) }
+    }
+
     fun moveCategoryPriorityUp(index: Int) {
         if (index <= 0) return
         val order = _uiState.value.categoryPriorityOrder.toMutableList()
@@ -172,6 +269,9 @@ class SettingsViewModel @Inject constructor(
                 userPreferenceManager.updateSelectedDigitalPackages(state.selectedDigitalPackages)
                 userPreferenceManager.updateDigitalInterventionThresholdMinutes(state.digitalInterventionThresholdMinutes)
                 userPreferenceManager.updateDigitalInterventionCooldownMinutes(state.digitalInterventionCooldownMinutes)
+                if (state.userHeightCm > 0f && state.userWeightKg > 0f) {
+                    userPreferenceManager.updateBodyInfo(state.userHeightCm, state.userWeightKg)
+                }
                 WorkScheduler.rescheduleAll(getApplication(), userPreferenceManager)
                 WidgetUpdateHelper.updateAllWidgetsSync(getApplication())
                 _uiState.update { it.copy(isSaved = true, errorMessage = null) }
@@ -207,4 +307,66 @@ class SettingsViewModel @Inject constructor(
             Manifest.permission.POST_NOTIFICATIONS,
         ) == PackageManager.PERMISSION_GRANTED
     }
+
+    // ── [DEBUG ONLY] 디버그 기능 (배포 시 아래 영역 전체 삭제) ───────────────────────
+
+    fun seedDebugData() {
+        if (_uiState.value.isSeeded || _uiState.value.isSeeding) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSeeding = true, debugInfoText = "규칙 가상 데이터 주입 중...") }
+            try {
+                debugDataSeeder.seedPersonaData()
+                // 유튜브 앱을 관리 대상 앱으로 추가
+                val currentPackages = userPreferenceManager.selectedDigitalPackagesFlow.first().toMutableSet()
+                currentPackages.add("com.google.android.youtube")
+                userPreferenceManager.updateSelectedDigitalPackages(currentPackages)
+                _uiState.update { 
+                    it.copy(
+                        isSeeding = false,
+                        isSeeded = true,
+                        debugInfoText = "어제 기준 규칙 데이터 주입 완료! (유튜브 관리 앱 등록됨)"
+                    ) 
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSeeding = false, debugInfoText = "데이터 주입 실패: ${e.message}") }
+            }
+        }
+    }
+
+    fun seedIrregularDebugData() {
+        if (_uiState.value.isSeeded || _uiState.value.isSeeding) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSeeding = true, debugInfoText = "불규칙 가상 데이터 주입 중...") }
+            try {
+                debugDataSeeder.seedIrregularPersonaData()
+                // 유튜브 앱을 관리 대상 앱으로 추가
+                val currentPackages = userPreferenceManager.selectedDigitalPackagesFlow.first().toMutableSet()
+                currentPackages.add("com.google.android.youtube")
+                userPreferenceManager.updateSelectedDigitalPackages(currentPackages)
+                _uiState.update { 
+                    it.copy(
+                        isSeeding = false,
+                        isSeeded = true,
+                        debugInfoText = "어제 기준 불규칙 데이터 주입 완료! (유튜브 관리 앱 등록됨)"
+                    ) 
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSeeding = false, debugInfoText = "데이터 주입 실패: ${e.message}") }
+            }
+        }
+    }
+
+    fun runPersonalizationAnalysis() {
+        if (_uiState.value.isSeeding) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSeeding = true, debugInfoText = "개인화 분석 실행 중...") }
+            try {
+                val firstPass = updatePersonalizationParamsUseCase()
+                _uiState.update { it.copy(isSeeding = false, debugInfoText = "분석 완료! (첫 게이트 통과 여부: $firstPass)") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSeeding = false, debugInfoText = "분석 실행 실패: ${e.message}") }
+            }
+        }
+    }
+    // [END OF DEBUG ONLY]
 }

@@ -124,7 +124,6 @@ fun WaterInputScreen(
             amountMl = pendingAmountMl,
             onConfirm = {
                 viewModel.onDrinkButtonClick(pendingAmountMl)
-                WidgetUpdateHelper.updateAllWidgetsSync(context)
                 pendingAmountMl = 0
                 customAmountText = ""
                 inputError = null

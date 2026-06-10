@@ -19,6 +19,5 @@ class MainViewModel @Inject constructor(
     // null = 아직 DataStore에서 값을 읽는 중
     val hasCompletedOnboarding: StateFlow<Boolean?> =
         userPreferenceManager.hasCompletedOnboardingFlow
-            .map<Boolean, Boolean?> { it }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), null)
 }

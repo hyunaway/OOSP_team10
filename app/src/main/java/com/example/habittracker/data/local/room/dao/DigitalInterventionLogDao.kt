@@ -18,8 +18,7 @@ abstract class DigitalInterventionLogDao {
     @Query("UPDATE digital_interventions SET reacted = :reacted, actionType = :actionType WHERE id = :id")
     abstract suspend fun updateReaction(id: Long, reacted: Boolean, actionType: String): Int
 
-    fun getTodayInterventions(): Flow<List<DigitalInterventionLogEntity>> =
-        getInterventionsBetween(todayStart(), Long.MAX_VALUE)
+
 
     @Query("""
         SELECT messageTone,
@@ -31,7 +30,7 @@ abstract class DigitalInterventionLogDao {
     abstract fun getToneReactionRate(start: Long, end: Long): Flow<List<ToneReactionRate>>
 
     @Query("SELECT * FROM digital_interventions WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
-    protected abstract fun getInterventionsBetween(start: Long, end: Long): Flow<List<DigitalInterventionLogEntity>>
+    abstract fun getInterventionsBetween(start: Long, end: Long): Flow<List<DigitalInterventionLogEntity>>
 
     @Query("""
         SELECT * FROM digital_interventions
@@ -41,10 +40,4 @@ abstract class DigitalInterventionLogDao {
     """)
     abstract suspend fun getLatestInterventionForApp(appPackage: String): DigitalInterventionLogEntity?
 
-    private fun todayStart(): Long = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
 }

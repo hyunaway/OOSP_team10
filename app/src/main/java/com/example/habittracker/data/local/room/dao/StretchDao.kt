@@ -1,5 +1,6 @@
 package com.example.habittracker.data.local.room.dao
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -27,28 +28,45 @@ abstract class StretchDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insert(record: StretchingRecord): Long
 
-    suspend fun insertStretchRecord(date: String, timeSlot: String, bodyParts: String) {
+    suspend fun insertStretchRecord(date: String, timeSlot: String) {
         val now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        insert(StretchingRecord(date = date, timeSlot = timeSlot, bodyParts = bodyParts, createdAt = now))
+        insert(StretchingRecord(date = date, timeSlot = timeSlot, createdAt = now))
     }
-
-    @Query("UPDATE stretching_records SET body_parts = :bodyParts WHERE id = :id")
-    abstract suspend fun updateStretchRecord(id: Int, bodyParts: String): Int
 
     @Query("DELETE FROM stretching_records WHERE id = :id")
     abstract suspend fun deleteStretchRecord(id: Int): Int
 
-    suspend fun isGoalAchieved(date: String): Boolean {
-        return getTodayStretchCount(date) >= 4
+    suspend fun isGoalAchieved(date: String, goal: Int): Boolean {
+        return getTodayStretchCount(date) >= goal
     }
 
-    suspend fun calculateStreak(today: String): Int {
+    @Query("""
+        SELECT date, COUNT(*) as count 
+        FROM stretching_records 
+        WHERE date <= :today 
+        GROUP BY date 
+        ORDER BY date DESC
+    """)
+    abstract suspend fun getDailyStretchCounts(today: String): List<DailyStretchCount>
+
+    suspend fun calculateStreak(today: String, goal: Int): Int {
+        val dailyCounts = getDailyStretchCounts(today).associate { it.date to it.count }
         var streak = 0
         var currentDate = java.time.LocalDate.parse(today)
-        while (isGoalAchieved(currentDate.toString())) {
-            streak++
-            currentDate = currentDate.minusDays(1)
+        while (true) {
+            val count = dailyCounts[currentDate.toString()] ?: 0
+            if (count >= goal) {
+                streak++
+                currentDate = currentDate.minusDays(1)
+            } else {
+                break
+            }
         }
         return streak
     }
 }
+
+data class DailyStretchCount(
+    @ColumnInfo(name = "date") val date: String,
+    @ColumnInfo(name = "count") val count: Int
+)

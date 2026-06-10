@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.example.habittracker.data.entity.MealLogEntity
+import com.example.habittracker.data.model.MealType
 import kotlinx.coroutines.flow.Flow
 import java.util.Calendar
 
@@ -42,8 +43,6 @@ abstract class MealDao {
         previousDate: String,
     ): Flow<List<MealLogEntity>>
 
-    fun getTodayLogs(): Flow<List<MealLogEntity>> = getLogsBetween(todayStart(), Long.MAX_VALUE)
-
     @Query("SELECT COUNT(*) FROM meal_logs WHERE isLateNight = 1 AND timestamp BETWEEN :start AND :end")
     abstract fun getLateNightCount(start: Long, end: Long): Flow<Int>
 
@@ -51,7 +50,7 @@ abstract class MealDao {
     abstract fun getLogsBetween(start: Long, end: Long): Flow<List<MealLogEntity>>
 
     @Query("UPDATE meal_logs SET type = :type WHERE id = :id")
-    abstract suspend fun updateTypeById(id: Long, type: String): Int
+    abstract suspend fun updateTypeById(id: Long, type: MealType): Int
 
     @Query("SELECT type, COUNT(*) AS count FROM meal_logs WHERE timestamp BETWEEN :start AND :end GROUP BY type")
     abstract fun getSkippedMealPattern(start: Long, end: Long): Flow<List<MealTypeCount>>
@@ -66,10 +65,4 @@ abstract class MealDao {
     """)
     abstract fun getMealHourByType(type: String, start: Long, end: Long): Flow<List<HourlyCount>>
 
-    private fun todayStart(): Long = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
 }

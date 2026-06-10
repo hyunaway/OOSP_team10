@@ -44,14 +44,19 @@ class HomeViewModel @Inject constructor(
                 getDashboardStateUseCase(),
                 userPreferenceManager.avatarGenderFlow,
                 userPreferenceManager.userNameFlow,
-            ) { dashState, genderStr, name ->
+                userPreferenceManager.categoryPriorityOrderFlow
+            ) { dashState, genderStr, name, priorityOrderStr ->
                 val gender = AvatarGender.fromString(genderStr)
                 val mealInterventionStatus = getCurrentMealInterventionStatusUseCase()
+                val priorityOrder = priorityOrderStr.split(",")
+                    .map { it.trim().uppercase() }
+                    .filter { it.isNotBlank() }
                 val resolveResult = AvatarStateResolver.resolve(
                     mealStatus = dashState.mealStatus,
                     waterStatus = dashState.waterStatus,
                     digitalStatus = dashState.digitalStatus,
                     stretchStatus = dashState.stretchStatus,
+                    priorityOrder = priorityOrder,
                     isMealActionable = mealInterventionStatus.isActionable,
                 )
                 val imageResId = AvatarImageMapper.resolve(gender, resolveResult.primaryState)

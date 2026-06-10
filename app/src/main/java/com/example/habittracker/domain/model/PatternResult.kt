@@ -4,15 +4,11 @@ package com.example.habittracker.domain.model
 data class WaterPatternResult(
     val peakHours: List<Int>,
     val lowResponseHours: List<Int>,
-    val weekdayPattern: Map<Int, Int>,
-    val weekendPattern: Map<Int, Int>,
 )
 
 data class MealPatternResult(
     val lateNightRiskHour: Int?,
     val skippedMealPattern: Map<String, Int>,
-    val weekdayMealTimeMap: Map<String, Int>,
-    val weekendMealTimeMap: Map<String, Int>,
 )
 
 data class DigitalPatternResult(
@@ -26,7 +22,4 @@ data class DigitalPatternResult(
 data class StretchPatternResult(
     val inactiveHours: List<Int>,
     val digitalTriggerConversionRate: Float,
-    val preferredBodyPart: String?,
-    val weekdayStretchPattern: Map<Int, Int>,
-    val weekendStretchPattern: Map<Int, Int>,
 )

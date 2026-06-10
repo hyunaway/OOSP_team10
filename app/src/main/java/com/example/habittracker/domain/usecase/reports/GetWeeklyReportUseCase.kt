@@ -23,7 +23,7 @@ class GetWeeklyReportUseCase @Inject constructor(
             waterRepository.getLogsBetween(startDate, endDate),
             mealRepository.getLogsBetween(startDate, endDate),
             digitalRepository.getLogsBetween(startDate, endDate, null),
-            stretchRepository.getLogsBetween(startDate, endDate, null),
+            stretchRepository.getLogsBetween(startDate, endDate),
         ) { water, meal, digital, stretch ->
             val overallRate = water.map { it.achievementRate }.average()
                 .toFloat().takeIf { it.isFinite() } ?: 0f

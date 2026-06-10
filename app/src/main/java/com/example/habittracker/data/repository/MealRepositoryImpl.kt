@@ -8,25 +8,47 @@ import com.example.habittracker.domain.model.DailyMealSummary
 import com.example.habittracker.domain.model.MealPatternResult
 import com.example.habittracker.domain.model.MealTodayStatus
 import com.example.habittracker.domain.repository.MealRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Singleton
 class MealRepositoryImpl @Inject constructor(
     private val mealDao: MealDao,
 ) : MealRepository {
 
+    private fun getCurrentDayStartFlow(): Flow<Long> = flow {
+        while (true) {
+            emit(getTodayStartMillis())
+            delay(30000)
+        }
+    }
+
+    //오늘 자정 시작 시간 계산(초 단위까지)
+    private fun getTodayStartMillis(): Long = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
     override fun getTodayLogs(): Flow<List<MealLogEntity>> =
-        mealDao.observeLogsByMealDate(LocalDate.now().toString())
+        getCurrentDayStartFlow().flatMapLatest { start ->
+            mealDao.getLogsBetween(start, Long.MAX_VALUE)
+        }
 
     override fun getTodayStatus(): Flow<MealTodayStatus> =
-        mealDao.observeLogsByMealDate(LocalDate.now().toString()).map { logs ->
+        getTodayLogs().map { logs ->
             MealTodayStatus(
                 breakfastLogged = logs.any { it.type == MealType.BREAKFAST },
                 lunchLogged = logs.any { it.type == MealType.LUNCH },
@@ -73,7 +95,7 @@ class MealRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateLog(id: Long, type: MealType) {
-        mealDao.updateTypeById(id, type.name)
+        mealDao.updateTypeById(id, type)
     }
 
     override suspend fun deleteLog(id: Long) {
@@ -103,17 +125,17 @@ class MealRepositoryImpl @Inject constructor(
     }
 
     override fun getPatternAnalysis(): Flow<MealPatternResult> {
-        val thirtyDaysAgo = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-        val now = System.currentTimeMillis()
+        val zoneId = ZoneId.systemDefault()
+        val todayStart = LocalDate.now().atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val thirtyDaysAgoStart = LocalDate.now().minusDays(30).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val yesterdayEnd = todayStart - 1
         return combine(
-            mealDao.getSkippedMealPattern(thirtyDaysAgo, now),
-            mealDao.getMealHourByType(MealType.DINNER.name, thirtyDaysAgo, now),
+            mealDao.getSkippedMealPattern(thirtyDaysAgoStart, yesterdayEnd),
+            mealDao.getMealHourByType(MealType.DINNER.name, thirtyDaysAgoStart, yesterdayEnd),
         ) { skipped, dinnerHours ->
             MealPatternResult(
                 lateNightRiskHour = dinnerHours.maxByOrNull { it.count }?.hour,
                 skippedMealPattern = skipped.associate { it.type to it.count },
-                weekdayMealTimeMap = emptyMap(),
-                weekendMealTimeMap = emptyMap(),
             )
         }
     }

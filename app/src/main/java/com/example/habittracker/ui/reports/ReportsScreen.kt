@@ -328,9 +328,6 @@ private fun InsightsCard(
         }
     }
     stretchPattern?.let { p ->
-        p.preferredBodyPart?.let { part ->
-            insights.add("🧘 스트레칭은 주로 $part 부위를 많이 했어요.")
-        }
         if (p.digitalTriggerConversionRate > 0.3f) {
             insights.add("🧘 디지털 알림 후 스트레칭 전환율이 ${(p.digitalTriggerConversionRate * 100).toInt()}%예요!")
         }

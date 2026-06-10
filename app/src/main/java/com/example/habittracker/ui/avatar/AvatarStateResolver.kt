@@ -21,17 +21,44 @@ object AvatarStateResolver {
         waterStatus: WaterTodayStatus,
         digitalStatus: DigitalTodayStatus,
         stretchStatus: StretchTodayStatus,
+        priorityOrder: List<String>,
         digitalLimitMinutes: Int = DEFAULT_DIGITAL_LIMIT_MINUTES,
         isMealActionable: Boolean = true,
     ): AvatarResolveResult {
+        val isMealLack = isMealActionable && isMealLacking(mealStatus)
+        val isWaterLack = isWaterLacking(waterStatus)
+        val isDigitalOveruse = isDigitalOveruse(digitalStatus, digitalLimitMinutes)
+        val isStretchLack = isStretchLacking(stretchStatus)
+
         val activeStates = buildList {
-            if (isMealActionable && isMealLacking(mealStatus)) add(AvatarState.MEAL_LACK)
-            if (isWaterLacking(waterStatus)) add(AvatarState.WATER_LACK)
-            if (isDigitalOveruse(digitalStatus, digitalLimitMinutes)) add(AvatarState.DIGITAL_OVERUSE)
-            if (isStretchLacking(stretchStatus)) add(AvatarState.STRETCH_LACK)
+            if (isMealLack) add(AvatarState.MEAL_LACK)
+            if (isWaterLack) add(AvatarState.WATER_LACK)
+            if (isDigitalOveruse) add(AvatarState.DIGITAL_OVERUSE)
+            if (isStretchLack) add(AvatarState.STRETCH_LACK)
         }
 
-        val primaryState = activeStates.minByOrNull { it.priority } ?: AvatarState.GOOD
+        // 우선순위가 높은 순서대로 부족한 상태가 발견되면 그것을 primaryState로 지정
+        var primaryState = AvatarState.GOOD
+        for (category in priorityOrder) {
+            val isLack = when (category.uppercase()) {
+                "MEAL" -> isMealLack
+                "WATER" -> isWaterLack
+                "DIGITAL" -> isDigitalOveruse
+                "STRETCH" -> isStretchLack
+                else -> false
+            }
+            if (isLack) {
+                primaryState = when (category.uppercase()) {
+                    "MEAL" -> AvatarState.MEAL_LACK
+                    "WATER" -> AvatarState.WATER_LACK
+                    "DIGITAL" -> AvatarState.DIGITAL_OVERUSE
+                    "STRETCH" -> AvatarState.STRETCH_LACK
+                    else -> AvatarState.GOOD
+                }
+                break
+            }
+        }
+
         return AvatarResolveResult(primaryState = primaryState, activeStates = activeStates)
     }
 

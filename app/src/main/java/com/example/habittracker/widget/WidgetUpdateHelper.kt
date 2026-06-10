@@ -127,22 +127,27 @@ object WidgetUpdateHelper {
 
     private fun buildCardView(context: Context, item: HabitCardState, widgetId: Int): RemoteViews {
         val base = widgetId * 100 + item.category.ordinal * 10
-        if (item.category == HabitCategory.MEAL)    return buildMealCardView(context, item, base)
-        if (item.category == HabitCategory.WATER)   return buildWaterCardView(context, item, base)
-        if (item.category == HabitCategory.DIGITAL) return buildDigitalCardView(context, item, base)
-        if (item.category == HabitCategory.STRETCH) return buildStretchCardView(context, item, base)
+        if (item.category == HabitCategory.MEAL)    return buildMealCardView(context, item, widgetId, base)
+        if (item.category == HabitCategory.WATER)   return buildWaterCardView(context, item, widgetId, base)
+        if (item.category == HabitCategory.DIGITAL) return buildDigitalCardView(context, item, widgetId, base)
+        if (item.category == HabitCategory.STRETCH) return buildStretchCardView(context, item, widgetId, base)
         return RemoteViews(context.packageName, R.layout.widget_habit_card_item).apply {
             setImageViewResource(R.id.widget_card_icon, item.iconResId)
             setTextViewText(R.id.widget_card_name,   item.category.displayName())
             setTextViewText(R.id.widget_card_status, item.statusLabel)
             setTextViewText(R.id.widget_card_desc,   item.description)
-            setOnClickPendingIntent(
-                R.id.widget_card_body,
-                navigatePendingIntent(context, item.category, base + 1),
-            )
+            
+            if (widgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
+                setOnClickPendingIntent(
+                    R.id.widget_card_name,
+                    navigatePendingIntent(context, item.category, base + 1),
+                )
+            }
+            
             setViewVisibility(R.id.tv_last_meal_time, View.GONE)
             setViewVisibility(R.id.tv_meal_count,     View.GONE)
             setViewVisibility(R.id.pb_meal_progress,  View.GONE)
+            
             if (item.isActionable) {
                 setViewVisibility(R.id.widget_card_btn, View.VISIBLE)
                 setTextViewText(R.id.widget_card_btn, item.actionLabel)
@@ -152,7 +157,7 @@ object WidgetUpdateHelper {
                     HabitCategory.STRETCH -> HabitStatusWidgetProvider.ACTION_ADD_STRETCH_QUICK
                     else                  -> null
                 }
-                if (btnAction != null) {
+                if (btnAction != null && widgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
                     setOnClickPendingIntent(
                         R.id.widget_card_btn,
                         broadcastPI(context, btnAction, base + 2),
@@ -164,32 +169,38 @@ object WidgetUpdateHelper {
         }
     }
 
-    private fun buildMealCardView(context: Context, item: HabitCardState, base: Int): RemoteViews {
+    private fun buildMealCardView(context: Context, item: HabitCardState, widgetId: Int, base: Int): RemoteViews {
         val allDone = item.mealData?.let { it.todayRecordCount >= it.targetMealCount } ?: false
         return RemoteViews(context.packageName, R.layout.widget_meal_card_item).apply {
             setTextViewText(R.id.widget_card_name,   "식사")
             setTextViewText(R.id.widget_card_status, item.statusLabel)
-            setOnClickPendingIntent(
-                R.id.widget_card_body,
-                navigatePendingIntent(context, HabitCategory.MEAL, base + 1),
-            )
-            if (allDone) {
-                setFloat(R.id.widget_btn_eat, "setAlpha", 0.5f)
-            } else {
-                setFloat(R.id.widget_btn_eat, "setAlpha", 1.0f)
+            
+            if (widgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
                 setOnClickPendingIntent(
-                    R.id.widget_btn_eat,
-                    broadcastPI(context, HabitStatusWidgetProvider.ACTION_MEAL_QUICK_RECORD, base + 2),
+                    R.id.widget_card_name,
+                    navigatePendingIntent(context, HabitCategory.MEAL, base + 1),
                 )
+                if (allDone) {
+                    setFloat(R.id.widget_btn_eat, "setAlpha", 0.5f)
+                } else {
+                    setFloat(R.id.widget_btn_eat, "setAlpha", 1.0f)
+                    setOnClickPendingIntent(
+                        R.id.widget_btn_eat,
+                        broadcastPI(context, HabitStatusWidgetProvider.ACTION_MEAL_QUICK_RECORD, base + 2),
+                    )
+                }
+                setOnClickPendingIntent(
+                    R.id.widget_btn_edit_meal,
+                    navigatePendingIntent(context, HabitCategory.MEAL, base + 3),
+                )
+            } else {
+                setFloat(R.id.widget_btn_eat, "setAlpha", 0.5f)
+                setFloat(R.id.widget_btn_edit_meal, "setAlpha", 0.5f)
             }
-            setOnClickPendingIntent(
-                R.id.widget_btn_edit_meal,
-                navigatePendingIntent(context, HabitCategory.MEAL, base + 3),
-            )
         }
     }
 
-    private fun buildWaterCardView(context: Context, item: HabitCardState, base: Int): RemoteViews {
+    private fun buildWaterCardView(context: Context, item: HabitCardState, widgetId: Int, base: Int): RemoteViews {
         val waterData = item.waterData
         return RemoteViews(context.packageName, R.layout.widget_water_card_item).apply {
             setTextViewText(R.id.widget_card_name, "물 섭취")
@@ -202,22 +213,24 @@ object WidgetUpdateHelper {
                 setTextViewText(R.id.widget_water_amount, "0잔 / 8잔")
                 setProgressBar(R.id.widget_water_progress, 100, 0, false)
             }
-            setOnClickPendingIntent(
-                R.id.widget_card_body,
-                navigatePendingIntent(context, HabitCategory.WATER, base + 1),
-            )
-            setOnClickPendingIntent(
-                R.id.widget_btn_water_log,
-                broadcastPI(context, HabitStatusWidgetProvider.ACTION_ADD_WATER_250, base + 2),
-            )
-            setOnClickPendingIntent(
-                R.id.widget_btn_water_edit,
-                navigatePendingIntent(context, HabitCategory.WATER, base + 3),
-            )
+            if (widgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
+                setOnClickPendingIntent(
+                    R.id.widget_card_name,
+                    navigatePendingIntent(context, HabitCategory.WATER, base + 1),
+                )
+                setOnClickPendingIntent(
+                    R.id.widget_btn_water_log,
+                    broadcastPI(context, HabitStatusWidgetProvider.ACTION_ADD_WATER_250, base + 2),
+                )
+                setOnClickPendingIntent(
+                    R.id.widget_btn_water_edit,
+                    navigatePendingIntent(context, HabitCategory.WATER, base + 3),
+                )
+            }
         }
     }
 
-    private fun buildDigitalCardView(context: Context, item: HabitCardState, base: Int): RemoteViews {
+    private fun buildDigitalCardView(context: Context, item: HabitCardState, widgetId: Int, base: Int): RemoteViews {
         val digitalData = item.digitalData
         return RemoteViews(context.packageName, R.layout.widget_digital_card_item).apply {
             setTextViewText(R.id.widget_card_name, "디지털")
@@ -247,18 +260,20 @@ object WidgetUpdateHelper {
             }
             setTextViewText(R.id.widget_digital_usage, usageSummary)
 
-            setOnClickPendingIntent(
-                R.id.widget_card_body,
-                navigatePendingIntent(context, HabitCategory.DIGITAL, base + 1),
-            )
-            setOnClickPendingIntent(
-                R.id.widget_btn_digital_manage,
-                navigatePendingIntent(context, HabitCategory.DIGITAL, base + 2),
-            )
+            if (widgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
+                setOnClickPendingIntent(
+                    R.id.widget_card_name,
+                    navigatePendingIntent(context, HabitCategory.DIGITAL, base + 1),
+                )
+                setOnClickPendingIntent(
+                    R.id.widget_btn_digital_manage,
+                    navigatePendingIntent(context, HabitCategory.DIGITAL, base + 2),
+                )
+            }
         }
     }
 
-    private fun buildStretchCardView(context: Context, item: HabitCardState, base: Int): RemoteViews {
+    private fun buildStretchCardView(context: Context, item: HabitCardState, widgetId: Int, base: Int): RemoteViews {
         val stretchData = item.stretchData
         val timerState  = stretchData?.timerState
             ?: StretchTimerWidgetState(isRunning = false, remainingSeconds = 60, isCompleted = false)
@@ -311,20 +326,22 @@ object WidgetUpdateHelper {
             }
             setFloat(R.id.widget_btn_stretch, "setAlpha", btnAlpha)
 
-            // 타이머 진행 중에는 카드 클릭으로 앱 진입 차단
-            if (!timerState.isRunning) {
-                setOnClickPendingIntent(
-                    R.id.widget_card_body,
-                    navigatePendingIntent(context, HabitCategory.STRETCH, base + 1),
-                )
-            }
+            if (widgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
+                // 타이머 진행 중에는 카드 클릭으로 앱 진입 차단
+                if (!timerState.isRunning) {
+                    setOnClickPendingIntent(
+                        R.id.widget_card_name,
+                        navigatePendingIntent(context, HabitCategory.STRETCH, base + 1),
+                    )
+                }
 
-            // 버튼 클릭: 기본 상태일 때만 타이머 시작
-            if (!timerState.isRunning && !timerState.isCompleted) {
-                setOnClickPendingIntent(
-                    R.id.widget_btn_stretch,
-                    broadcastPI(context, HabitStatusWidgetProvider.ACTION_STRETCH_START_TIMER, base + 2),
-                )
+                // 버튼 클릭: 기본 상태일 때만 타이머 시작
+                if (!timerState.isRunning && !timerState.isCompleted) {
+                    setOnClickPendingIntent(
+                        R.id.widget_btn_stretch,
+                        broadcastPI(context, HabitStatusWidgetProvider.ACTION_STRETCH_START_TIMER, base + 2),
+                    )
+                }
             }
         }
     }

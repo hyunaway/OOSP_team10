@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.WorkerParameters
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.domain.analysis.PersonalizationResolver
 import com.example.habittracker.domain.usecase.stretch.CheckStretchInterventionNeededUseCase
 import com.example.habittracker.util.NotificationHelper
 import com.example.habittracker.widget.WidgetUpdateHelper
@@ -17,9 +18,10 @@ class StretchReminderWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     userPreferenceManager: UserPreferenceManager,
+    personalizationResolver: PersonalizationResolver,
     private val notificationHelper: NotificationHelper,
     private val checkStretchInterventionNeededUseCase: CheckStretchInterventionNeededUseCase,
-) : BaseReminderWorker(context, params, userPreferenceManager) {
+) : BaseReminderWorker(context, params, userPreferenceManager, personalizationResolver) {
 
     override suspend fun doRemind(): Result {
         return try {
@@ -27,12 +29,12 @@ class StretchReminderWorker @AssistedInject constructor(
                 return Result.success()
             }
 
-            val now = System.currentTimeMillis()
+            val now    = System.currentTimeMillis()
             val status = checkStretchInterventionNeededUseCase(now)
             if (status.isNeedStretch) {
                 notificationHelper.sendStretchReminder(
-                    message = status.message,
-                    trigger = "activity_based",
+                    message  = status.message,
+                    trigger  = "activity_based",
                     isUrgent = false,
                 )
                 userPreferenceManager.updateLastStretchReminderAt(now)
@@ -42,10 +44,7 @@ class StretchReminderWorker @AssistedInject constructor(
         } catch (e: Exception) {
             Result.retry()
         } finally {
-            try {
-                WidgetUpdateHelper.updateAllWidgets(applicationContext)
-            } catch (_: Exception) {}
+            try { WidgetUpdateHelper.updateAllWidgets(applicationContext) } catch (_: Exception) {}
         }
     }
-
 }

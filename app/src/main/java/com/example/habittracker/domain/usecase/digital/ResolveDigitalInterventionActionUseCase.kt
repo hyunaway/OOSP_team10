@@ -5,7 +5,7 @@ import com.example.habittracker.domain.model.RecommendedInterventionAction
 import com.example.habittracker.domain.model.RecommendedInterventionActionType
 import com.example.habittracker.domain.model.WaterShortageLevel
 import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
-import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseCase
+import com.example.habittracker.domain.usecase.stretch.CheckStretchInterventionNeededUseCase
 import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -15,7 +15,7 @@ import javax.inject.Singleton
 class ResolveDigitalInterventionActionUseCase @Inject constructor(
     private val userPreferenceManager: UserPreferenceManager,
     private val checkWaterInterventionNeededUseCase: CheckWaterInterventionNeededUseCase,
-    private val getTodayStretchStatusUseCase: GetTodayStretchStatusUseCase,
+    private val checkStretchInterventionNeededUseCase: CheckStretchInterventionNeededUseCase,
     private val getCurrentMealInterventionStatusUseCase: GetCurrentMealInterventionStatusUseCase,
 ) {
 
@@ -59,11 +59,11 @@ class ResolveDigitalInterventionActionUseCase @Inject constructor(
 
     private suspend fun resolveStretchAction(): RecommendedInterventionAction? =
         runCatching {
-            val status = getTodayStretchStatusUseCase().first()
-            if (status.totalCount >= STRETCH_GOAL_COUNT) return@runCatching null
+            val status = checkStretchInterventionNeededUseCase(System.currentTimeMillis())
+            if (!status.isNeedStretch) return@runCatching null
             RecommendedInterventionAction(
                 type = RecommendedInterventionActionType.STRETCH,
-                message = "사용 시간이 길어졌어요. 5분만 몸을 풀어볼까요?",
+                message = status.message,
             )
         }.getOrNull()
 

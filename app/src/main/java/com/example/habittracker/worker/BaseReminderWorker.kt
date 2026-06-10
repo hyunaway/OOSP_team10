@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.domain.analysis.PersonalizationResolver
 import kotlinx.coroutines.flow.first
 import java.util.Calendar
 
@@ -12,6 +13,8 @@ abstract class BaseReminderWorker(
     context: Context,
     params: WorkerParameters,
     protected val userPreferenceManager: UserPreferenceManager,
+    /** 개인화 값 안전 공급자 — 모든 메서드가 항상 유효한 값을 반환 */
+    protected val personalizationResolver: PersonalizationResolver,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -26,7 +29,7 @@ abstract class BaseReminderWorker(
     abstract suspend fun doRemind(): Result
 
     protected suspend fun isInSleepTime(): Boolean {
-        val bedMinutes = userPreferenceManager.getBedTimeAsMinutes().first()
+        val bedMinutes  = userPreferenceManager.getBedTimeAsMinutes().first()
         val wakeMinutes = userPreferenceManager.getWakeTimeAsMinutes().first()
         val now = Calendar.getInstance()
         val currentMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
