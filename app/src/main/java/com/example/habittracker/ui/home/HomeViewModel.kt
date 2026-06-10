@@ -4,6 +4,7 @@ package com.example.habittracker.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.domain.analysis.PersonalizationResolver
 import com.example.habittracker.domain.model.DashboardState
 import com.example.habittracker.domain.usecase.dashboard.GetDashboardStateUseCase
 import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
@@ -33,6 +34,7 @@ class HomeViewModel @Inject constructor(
     getDashboardStateUseCase: GetDashboardStateUseCase,
     userPreferenceManager: UserPreferenceManager,
     private val getCurrentMealInterventionStatusUseCase: GetCurrentMealInterventionStatusUseCase,
+    private val personalizationResolver: PersonalizationResolver,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -51,6 +53,7 @@ class HomeViewModel @Inject constructor(
                 val priorityOrder = priorityOrderStr.split(",")
                     .map { it.trim().uppercase() }
                     .filter { it.isNotBlank() }
+                val stretchGoal = personalizationResolver.resolveStretchGoalCount()
                 val resolveResult = AvatarStateResolver.resolve(
                     mealStatus = dashState.mealStatus,
                     waterStatus = dashState.waterStatus,
@@ -58,6 +61,7 @@ class HomeViewModel @Inject constructor(
                     stretchStatus = dashState.stretchStatus,
                     priorityOrder = priorityOrder,
                     isMealActionable = mealInterventionStatus.isActionable,
+                    stretchGoalCount = stretchGoal,
                 )
                 val imageResId = AvatarImageMapper.resolve(gender, resolveResult.primaryState)
                 HomeUiState(

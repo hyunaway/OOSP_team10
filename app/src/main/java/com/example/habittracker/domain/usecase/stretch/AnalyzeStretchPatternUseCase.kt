@@ -52,7 +52,6 @@ class AnalyzeStretchPatternUseCase @Inject constructor(
         }
         val newGoal = when {
             completionRate >= 0.8f -> (currentGoal + 1).coerceIn(1, 6)
-            completionRate <= 0.4f -> (currentGoal - 1).coerceIn(1, 6)
             else                   -> currentGoal
         }
 

@@ -4,6 +4,7 @@ package com.example.habittracker.ui.avatar
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.domain.analysis.PersonalizationResolver
 import com.example.habittracker.domain.repository.DigitalRepository
 import com.example.habittracker.domain.repository.MealRepository
 import com.example.habittracker.domain.repository.StretchRepository
@@ -34,6 +35,7 @@ class SharedAvatarViewModel @Inject constructor(
     private val digitalRepository: DigitalRepository,
     private val stretchRepository: StretchRepository,
     private val getCurrentMealInterventionStatusUseCase: GetCurrentMealInterventionStatusUseCase,
+    private val personalizationResolver: PersonalizationResolver,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AvatarUiState())
@@ -61,6 +63,7 @@ class SharedAvatarViewModel @Inject constructor(
                 val priorityOrder = priorityOrderStr.split(",")
                     .map { it.trim().uppercase() }
                     .filter { it.isNotBlank() }
+                val stretchGoal = personalizationResolver.resolveStretchGoalCount()
                 val resolved = AvatarStateResolver.resolve(
                     mealStatus = meal,
                     waterStatus = water,
@@ -69,6 +72,7 @@ class SharedAvatarViewModel @Inject constructor(
                     priorityOrder = priorityOrder,
                     digitalLimitMinutes = digitalLimit,
                     isMealActionable = mealInterventionStatus.isActionable,
+                    stretchGoalCount = stretchGoal,
                 )
                 Pair(resolved, mealInterventionStatus)
             }

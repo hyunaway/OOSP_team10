@@ -24,11 +24,12 @@ object AvatarStateResolver {
         priorityOrder: List<String>,
         digitalLimitMinutes: Int = DEFAULT_DIGITAL_LIMIT_MINUTES,
         isMealActionable: Boolean = true,
+        stretchGoalCount: Int = STRETCH_GOAL_COUNT,
     ): AvatarResolveResult {
         val isMealLack = isMealActionable && isMealLacking(mealStatus)
         val isWaterLack = isWaterLacking(waterStatus)
         val isDigitalOveruse = isDigitalOveruse(digitalStatus, digitalLimitMinutes)
-        val isStretchLack = isStretchLacking(stretchStatus)
+        val isStretchLack = isStretchLacking(stretchStatus, stretchGoalCount)
 
         val activeStates = buildList {
             if (isMealLack) add(AvatarState.MEAL_LACK)
@@ -74,8 +75,8 @@ object AvatarStateResolver {
     private fun isDigitalOveruse(status: DigitalTodayStatus, limitMinutes: Int): Boolean =
         status.totalUsageMinutes > limitMinutes
 
-    private fun isStretchLacking(status: StretchTodayStatus): Boolean =
-        status.totalCount < STRETCH_GOAL_COUNT
+    private fun isStretchLacking(status: StretchTodayStatus, goalCount: Int): Boolean =
+        status.totalCount < goalCount
 
     fun bubbleMessageFor(
         primaryState: AvatarState,
