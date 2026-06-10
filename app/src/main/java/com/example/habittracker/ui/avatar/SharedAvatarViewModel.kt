@@ -47,14 +47,26 @@ class SharedAvatarViewModel @Inject constructor(
                 waterRepository.getTodayStatus(),
                 digitalRepository.getTodayStatus(),
                 stretchRepository.getTodayStatus(),
-                userPreferenceManager.digitalInterventionBaseDurationFlow
-            ) { meal, water, digital, stretch, digitalLimit ->
+                userPreferenceManager.digitalInterventionBaseDurationFlow,
+                userPreferenceManager.categoryPriorityOrderFlow
+            ) { flows ->
+                val meal = flows[0] as com.example.habittracker.domain.model.MealTodayStatus
+                val water = flows[1] as com.example.habittracker.domain.model.WaterTodayStatus
+                val digital = flows[2] as com.example.habittracker.domain.model.DigitalTodayStatus
+                val stretch = flows[3] as com.example.habittracker.domain.model.StretchTodayStatus
+                val digitalLimit = flows[4] as Int
+                val priorityOrderStr = flows[5] as String
+
                 val mealInterventionStatus = getCurrentMealInterventionStatusUseCase()
+                val priorityOrder = priorityOrderStr.split(",")
+                    .map { it.trim().uppercase() }
+                    .filter { it.isNotBlank() }
                 val resolved = AvatarStateResolver.resolve(
                     mealStatus = meal,
                     waterStatus = water,
                     digitalStatus = digital,
                     stretchStatus = stretch,
+                    priorityOrder = priorityOrder,
                     digitalLimitMinutes = digitalLimit,
                     isMealActionable = mealInterventionStatus.isActionable,
                 )

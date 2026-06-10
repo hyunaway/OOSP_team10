@@ -23,7 +23,9 @@ data class SettingsUiState(
     // 신체 정보
     val userHeightCm: Float = 0f,
     val userWeightKg: Float = 0f,
-    // 디버그 정보
+    // [DEBUG ONLY] 디버그 정보 및 데이터 주입 상태 변수 (배포 시 이 블록 전체 삭제)
+    val isSeeding: Boolean = false,
+    val isSeeded: Boolean = false,
     val isWaterReady: Boolean = false,
     val isMealReady: Boolean = false,
     val isStretchReady: Boolean = false,
@@ -41,4 +43,5 @@ data class SettingsUiState(
     val resolvedYoutubeAvgSession: Float = 0f,
     val resolvedMessageTone: String = "",
     val debugInfoText: String = "",
+    // [END OF DEBUG ONLY]
 )

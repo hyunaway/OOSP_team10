@@ -421,9 +421,10 @@ fun SettingsScreen(
                 NotifToggleRow(label = "📱 디지털", enabled = digitalNotifEnabled, onToggle = { digitalNotifEnabled = it })
             }
 
+            // [DEBUG ONLY] 배포 시 아래 디버그 카드 UI 블록 전체 삭제 (SettingsScreen.kt 파일에서 이 카드 블록 삭제)
             SettingsCard(title = "🛠 디버그 개인화 검증 (방법 A)") {
                 Text(
-                    text = "어제(6.4)까지의 가상 데이터를 DB에 주입하고 개인화 분석 파이프라인을 실행합니다. 오늘(6.5) 데이터는 빈 채로 유지되어 하루의 시작 시점을 재현합니다.",
+                    text = "가상 데이터를 DB에 주입하고 개인화 분석 파이프라인을 실행합니다. 오늘 데이터는 빈 채로 유지되어 하루의 시작 시점을 재현합니다.",
                     style = MaterialTheme.typography.bodySmall,
                     color = HabitTextSecondary,
                 )
@@ -476,6 +477,7 @@ fun SettingsScreen(
 
                 Button(
                     onClick = { viewModel.seedDebugData() },
+                    enabled = !uiState.isSeeding && !uiState.isSeeded,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(HabitRadius.button),
                     colors = ButtonDefaults.buttonColors(containerColor = HabitDeepMint),
@@ -485,6 +487,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(HabitSpacing.xs))
                 Button(
                     onClick = { viewModel.seedIrregularDebugData() },
+                    enabled = !uiState.isSeeding && !uiState.isSeeded,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(HabitRadius.button),
                     colors = ButtonDefaults.buttonColors(containerColor = HabitDeepMint),
@@ -494,21 +497,15 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(HabitSpacing.xs))
                 Button(
                     onClick = { viewModel.runPersonalizationAnalysis() },
+                    enabled = !uiState.isSeeding,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(HabitRadius.button),
                     colors = ButtonDefaults.buttonColors(containerColor = HabitDeepMint),
                 ) {
                     Text("2. 개인화 분석 즉시 실행", color = Color.White, fontWeight = FontWeight.Bold)
                 }
-                Spacer(modifier = Modifier.height(HabitSpacing.xs))
-                OutlinedButton(
-                    onClick = { viewModel.clearAllData() },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(HabitRadius.button),
-                ) {
-                    Text("데이터 전체 초기화", color = MaterialTheme.colorScheme.error)
-                }
             }
+            // [END OF DEBUG ONLY]
 
             Spacer(modifier = Modifier.height(HabitSpacing.md))
 

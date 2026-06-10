@@ -89,7 +89,6 @@ class WaterRepositoryImpl @Inject constructor(
      */
     override suspend fun addLog(amountMl: Int, source: String, timestamp: Long) {
         waterDao.insert(WaterLogEntity(timestamp = timestamp, amountMl = amountMl, source = source))
-        WidgetUpdateHelper.updateAllWidgets(context) // 위젯 업데이트 트리거
     }
 
     /**

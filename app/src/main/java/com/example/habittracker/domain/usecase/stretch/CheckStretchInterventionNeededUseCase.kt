@@ -43,6 +43,37 @@ class CheckStretchInterventionNeededUseCase @Inject constructor(
             )
         }
 
+        // 1. 마지막 알림 쿨다운 검증 (90분)
+        val lastReminderAt = userPreferenceManager.lastStretchReminderAtFlow.first()
+        val reminderRemainingMinutes = remainingMinutesAfterInterval(
+            sinceMillis = lastReminderAt,
+            nowMillis = nowMillis,
+            intervalMinutes = REMINDER_COOLDOWN_MINUTES,
+        )
+        if (reminderRemainingMinutes != null && reminderRemainingMinutes > 0) {
+            return noNeed(
+                goal = personalizedGoal,
+                todayCount = todayCount,
+                minutesUntilNextRecommended = reminderRemainingMinutes,
+            )
+        }
+
+        // 2. 활동 시작 후 첫 딜레이 검증 (15분)
+        if (todayCount == 0) {
+            val firstReminderRemainingMinutes = remainingMinutesAfterInterval(
+                sinceMillis = activeStartedAt,
+                nowMillis = nowMillis,
+                intervalMinutes = FIRST_REMINDER_DELAY_MINUTES,
+            )
+            if (firstReminderRemainingMinutes != null && firstReminderRemainingMinutes > 0) {
+                return noNeed(
+                    goal = personalizedGoal,
+                    todayCount = todayCount,
+                    minutesUntilNextRecommended = firstReminderRemainingMinutes,
+                )
+            }
+        }
+
         // --- 개인화 선호 슬롯(Peak Slot) 체크 및 우회 로직 추가 ---
         val todayDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(nowMillis))
         val currentSlot = resolveSlotFromMillis(nowMillis)
@@ -66,33 +97,7 @@ class CheckStretchInterventionNeededUseCase @Inject constructor(
         }
         // ------------------------------------------------------
 
-        val lastReminderAt = userPreferenceManager.lastStretchReminderAtFlow.first()
-        val reminderRemainingMinutes = remainingMinutesAfterInterval(
-            sinceMillis = lastReminderAt,
-            nowMillis = nowMillis,
-            intervalMinutes = REMINDER_COOLDOWN_MINUTES,
-        )
-        if (reminderRemainingMinutes != null && reminderRemainingMinutes > 0) {
-            return noNeed(
-                goal = personalizedGoal,
-                todayCount = todayCount,
-                minutesUntilNextRecommended = reminderRemainingMinutes,
-            )
-        }
-
         if (todayCount == 0) {
-            val firstReminderRemainingMinutes = remainingMinutesAfterInterval(
-                sinceMillis = activeStartedAt,
-                nowMillis = nowMillis,
-                intervalMinutes = FIRST_REMINDER_DELAY_MINUTES,
-            )
-            if (firstReminderRemainingMinutes != null && firstReminderRemainingMinutes > 0) {
-                return noNeed(
-                    goal = personalizedGoal,
-                    todayCount = todayCount,
-                    minutesUntilNextRecommended = firstReminderRemainingMinutes,
-                )
-            }
             return StretchInterventionStatus(
                 isNeedStretch = true,
                 message = "하루를 시작한 지 조금 지났어요. 5분만 가볍게 몸을 풀어볼까요?",

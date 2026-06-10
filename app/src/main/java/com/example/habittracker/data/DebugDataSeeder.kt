@@ -1,3 +1,4 @@
+// [DEBUG ONLY] 배포 시 이 파일 전체(DebugDataSeeder.kt) 및 관련 의존성 주입 코드를 삭제해야 합니다.
 package com.example.habittracker.data
 
 import com.example.habittracker.data.entity.*
@@ -31,16 +32,24 @@ class DebugDataSeeder @Inject constructor(
         appDatabase.clearAllTables()
     }
 
+    companion object {
+        // [DEBUG ONLY] 데이터를 쉽게 수정할 수 있도록 상수로 분리
+        // 기준 일자: 오늘로부터 1일 전 (어제)
+        const val SEED_START_DAYS_AGO = 1 
+        // 시딩 데이터 기간: 14일치
+        const val SEED_DURATION_DAYS = 14
+    }
+
     /**
-     * 어제(6.4) 기준 14일치 [규칙적인 페르소나 "김민준"] 데이터를 삽입합니다.
+     * 지정된 기준일자 및 기간에 맞게 [규칙적인 페르소나 "김민준"] 데이터를 삽입합니다.
      */
     suspend fun seedPersonaData() {
         val calendar = Calendar.getInstance()
-        val yesterdayMs = System.currentTimeMillis() - (24 * 60 * 60 * 1000L) // 어제
+        val yesterdayMs = System.currentTimeMillis() - (SEED_START_DAYS_AGO * 24 * 60 * 60 * 1000L)
         val oneDayMs = 24 * 60 * 60 * 1000L
 
-        // 14일 전부터 어제까지 데이터를 채워넣음
-        for (dayOffset in 0..13) {
+        // 설정된 기간 동안 데이터를 채워넣음
+        for (dayOffset in 0 until SEED_DURATION_DAYS) {
             calendar.timeInMillis = yesterdayMs - (dayOffset * oneDayMs)
             val yyyyMMdd = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
 
@@ -172,15 +181,15 @@ class DebugDataSeeder @Inject constructor(
     }
 
     /**
-     * 어제(6.4) 기준 14일치 [불규칙적인 페르소나 "박지우"] 데이터를 삽입합니다.
+     * 지정된 기준일자 및 기간에 맞게 [불규칙적인 페르소나 "박지우"] 데이터를 삽입합니다.
      */
     suspend fun seedIrregularPersonaData() {
         val calendar = Calendar.getInstance()
-        val yesterdayMs = System.currentTimeMillis() - (24 * 60 * 60 * 1000L) // 어제
+        val yesterdayMs = System.currentTimeMillis() - (SEED_START_DAYS_AGO * 24 * 60 * 60 * 1000L)
         val oneDayMs = 24 * 60 * 60 * 1000L
 
-        // 14일 전부터 어제까지 데이터를 채워넣음
-        for (dayOffset in 0..13) {
+        // 설정된 기간 동안 데이터를 채워넣음
+        for (dayOffset in 0 until SEED_DURATION_DAYS) {
             calendar.timeInMillis = yesterdayMs - (dayOffset * oneDayMs)
             val yyyyMMdd = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
 

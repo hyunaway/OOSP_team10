@@ -48,6 +48,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        android.util.Log.d("HabitWidget", "onReceive: action = ${intent.action}")
         super.onReceive(context, intent)
         when (intent.action) {
             ACTION_NEXT_CARD -> {
@@ -79,6 +80,10 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                             context.applicationContext,
                             WidgetDependenciesEntryPoint::class.java,
                         )
+                        val activeStartedAt = ep.userPreferenceManager().todayActiveStartedAtFlow.first()
+                        if (activeStartedAt == null) {
+                            return@launch
+                        }
                         AppDatabase.getInstance(context).waterDao().insert(
                             WaterLogEntity(
                                 timestamp = System.currentTimeMillis(),
@@ -98,6 +103,10 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                             context.applicationContext,
                             WidgetDependenciesEntryPoint::class.java,
                         )
+                        val activeStartedAt = ep.userPreferenceManager().todayActiveStartedAtFlow.first()
+                        if (activeStartedAt == null) {
+                            return@launch
+                        }
                         val timeSlot = when (LocalTime.now().hour) {
                             in 0..11 -> "아침"
                             in 12..17 -> "점심"
@@ -120,6 +129,10 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                             context.applicationContext,
                             WidgetDependenciesEntryPoint::class.java,
                         )
+                        val activeStartedAt = ep.userPreferenceManager().todayActiveStartedAtFlow.first()
+                        if (activeStartedAt == null) {
+                            return@launch
+                        }
                         val mealStatus = ep.getCurrentMealInterventionStatusUseCase()()
                         val mealType = mealStatus.actionableMealType
                             ?: when (LocalTime.now().hour) {
@@ -153,6 +166,10 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                             context.applicationContext,
                             WidgetDependenciesEntryPoint::class.java,
                         )
+                        val activeStartedAt = ep.userPreferenceManager().todayActiveStartedAtFlow.first()
+                        if (activeStartedAt == null) {
+                            return@launch
+                        }
                         val mealType = when (LocalTime.now().hour) {
                             in 0..9   -> MealType.BREAKFAST
                             in 10..15 -> MealType.LUNCH

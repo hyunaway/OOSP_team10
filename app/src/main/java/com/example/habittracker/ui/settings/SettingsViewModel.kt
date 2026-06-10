@@ -23,7 +23,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+// [DEBUG ONLY] 배포 시 아래 DebugDataSeeder 임포트 삭제
 import com.example.habittracker.data.DebugDataSeeder
+// [END OF DEBUG ONLY]
 import com.example.habittracker.domain.usecase.personalization.UpdatePersonalizationParamsUseCase
 import com.example.habittracker.domain.analysis.PersonalizationResolver
 import javax.inject.Inject
@@ -33,7 +35,9 @@ class SettingsViewModel @Inject constructor(
     application: Application,
     private val userPreferenceManager: UserPreferenceManager,
     private val usageStatsHelper: UsageStatsHelper,
+    // [DEBUG ONLY] 배포 시 아래 debugDataSeeder 의존성 삭제
     private val debugDataSeeder: DebugDataSeeder,
+    // [END OF DEBUG ONLY]
     private val updatePersonalizationParamsUseCase: UpdatePersonalizationParamsUseCase,
     private val personalizationResolver: PersonalizationResolver,
 ) : AndroidViewModel(application) {
@@ -304,83 +308,65 @@ class SettingsViewModel @Inject constructor(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    // ── 디버그 기능 ──────────────────────────────────────────────────────────
+    // ── [DEBUG ONLY] 디버그 기능 (배포 시 아래 영역 전체 삭제) ───────────────────────
 
     fun seedDebugData() {
+        if (_uiState.value.isSeeded || _uiState.value.isSeeding) return
         viewModelScope.launch {
-            _uiState.update { it.copy(debugInfoText = "규칙 가상 데이터 주입 중...") }
+            _uiState.update { it.copy(isSeeding = true, debugInfoText = "규칙 가상 데이터 주입 중...") }
             try {
                 debugDataSeeder.seedPersonaData()
                 // 유튜브 앱을 관리 대상 앱으로 추가
                 val currentPackages = userPreferenceManager.selectedDigitalPackagesFlow.first().toMutableSet()
                 currentPackages.add("com.google.android.youtube")
                 userPreferenceManager.updateSelectedDigitalPackages(currentPackages)
-                _uiState.update { it.copy(debugInfoText = "어제(6.4) 기한 규칙 데이터 주입 완료! (유튜브 관리 앱 등록됨)") }
+                _uiState.update { 
+                    it.copy(
+                        isSeeding = false,
+                        isSeeded = true,
+                        debugInfoText = "어제 기준 규칙 데이터 주입 완료! (유튜브 관리 앱 등록됨)"
+                    ) 
+                }
             } catch (e: Exception) {
-                _uiState.update { it.copy(debugInfoText = "데이터 주입 실패: ${e.message}") }
+                _uiState.update { it.copy(isSeeding = false, debugInfoText = "데이터 주입 실패: ${e.message}") }
             }
         }
     }
 
     fun seedIrregularDebugData() {
+        if (_uiState.value.isSeeded || _uiState.value.isSeeding) return
         viewModelScope.launch {
-            _uiState.update { it.copy(debugInfoText = "불규칙 가상 데이터 주입 중...") }
+            _uiState.update { it.copy(isSeeding = true, debugInfoText = "불규칙 가상 데이터 주입 중...") }
             try {
                 debugDataSeeder.seedIrregularPersonaData()
                 // 유튜브 앱을 관리 대상 앱으로 추가
                 val currentPackages = userPreferenceManager.selectedDigitalPackagesFlow.first().toMutableSet()
                 currentPackages.add("com.google.android.youtube")
                 userPreferenceManager.updateSelectedDigitalPackages(currentPackages)
-                _uiState.update { it.copy(debugInfoText = "어제(6.4) 기한 불규칙 데이터 주입 완료! (유튜브 관리 앱 등록됨)") }
+                _uiState.update { 
+                    it.copy(
+                        isSeeding = false,
+                        isSeeded = true,
+                        debugInfoText = "어제 기준 불규칙 데이터 주입 완료! (유튜브 관리 앱 등록됨)"
+                    ) 
+                }
             } catch (e: Exception) {
-                _uiState.update { it.copy(debugInfoText = "데이터 주입 실패: ${e.message}") }
+                _uiState.update { it.copy(isSeeding = false, debugInfoText = "데이터 주입 실패: ${e.message}") }
             }
         }
     }
 
     fun runPersonalizationAnalysis() {
+        if (_uiState.value.isSeeding) return
         viewModelScope.launch {
-            _uiState.update { it.copy(debugInfoText = "개인화 분석 실행 중...") }
+            _uiState.update { it.copy(isSeeding = true, debugInfoText = "개인화 분석 실행 중...") }
             try {
                 val firstPass = updatePersonalizationParamsUseCase()
-                _uiState.update { it.copy(debugInfoText = "분석 완료! (첫 게이트 통과 여부: $firstPass)") }
+                _uiState.update { it.copy(isSeeding = false, debugInfoText = "분석 완료! (첫 게이트 통과 여부: $firstPass)") }
             } catch (e: Exception) {
-                _uiState.update { it.copy(debugInfoText = "분석 실행 실패: ${e.message}") }
+                _uiState.update { it.copy(isSeeding = false, debugInfoText = "분석 실행 실패: ${e.message}") }
             }
         }
     }
-
-    fun clearAllData() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(debugInfoText = "데이터 초기화 중...") }
-            try {
-                debugDataSeeder.clearAllData()
-                userPreferenceManager.clearAllPersonalizationData()
-                
-                _uiState.update {
-                    it.copy(
-                        debugInfoText = "초기화 완료! (Room DB 비움 & 개인화 리셋)",
-                        isWaterReady = false,
-                        isMealReady = false,
-                        isStretchReady = false,
-                        isDigitalReady = false,
-                        resolvedBreakfastTime = "00:00",
-                        resolvedLunchTime = "00:00",
-                        resolvedDinnerTime = "00:00",
-                        resolvedLateNightTime = "00:00",
-                        resolvedStretchGoal = 0,
-                        resolvedWaterGoalMl = 0,
-                        resolvedWaterInterval = 0,
-                        resolvedWaterPeak = "패턴 없음",
-                        resolvedStretchPreferredSlot = "없음",
-                        resolvedYoutubeThreshold = 0,
-                        resolvedYoutubeAvgSession = 0f,
-                        resolvedMessageTone = ""
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(debugInfoText = "초기화 실패: ${e.message}") }
-            }
-        }
-    }
+    // [END OF DEBUG ONLY]
 }
