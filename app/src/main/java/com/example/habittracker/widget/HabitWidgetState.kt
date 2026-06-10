@@ -6,6 +6,9 @@ data class MealWidgetData(
     val lastMealTime: LocalDateTime?,
     val todayRecordCount: Int,
     val targetMealCount: Int = 3,
+    val breakfastLogged: Boolean = false,
+    val lunchLogged: Boolean = false,
+    val dinnerLogged: Boolean = false,
 )
 
 data class WaterWidgetData(
@@ -54,3 +57,5 @@ data class HabitCardState(
 enum class HabitCategory { MEAL, WATER, DIGITAL, STRETCH, GOOD }
 
 enum class RiskLevel { NORMAL, WARNING, DANGER }
+
+enum class WidgetActionType { MEAL, WATER, STRETCH }

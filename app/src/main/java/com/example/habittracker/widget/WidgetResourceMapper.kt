@@ -55,6 +55,9 @@ object WidgetResourceMapper {
                 Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDateTime()
             },
             todayRecordCount = todayMealRecordCount,
+            breakfastLogged = todayMealStatus.breakfastLogged,
+            lunchLogged = todayMealStatus.lunchLogged,
+            dinnerLogged = todayMealStatus.dinnerLogged,
         )
 
         val isMealRisk = mealStatus.isActionable
@@ -96,9 +99,16 @@ object WidgetResourceMapper {
             priorityOrder.indexOf(card.category).takeIf { it >= 0 } ?: Int.MAX_VALUE
         }
 
+        val actionLock = WidgetActionLock.getLockedAction(context)
+        val finalAvatarResId = when {
+            actionLock != null          -> actionAvatarResId(gender, actionLock)
+            stretchTimerState.isRunning -> actionAvatarResId(gender, WidgetActionType.STRETCH)
+            else                        -> avatarResId(dominantCategory, gender)
+        }
+
         return HabitWidgetState(
             dominantCategory = dominantCategory,
-            avatarResId = avatarResId(dominantCategory, gender),
+            avatarResId = finalAvatarResId,
             categoryCards = categoryCards,
         )
     }
@@ -130,7 +140,22 @@ object WidgetResourceMapper {
         return parsed.ifEmpty { DEFAULT_PRIORITY_ORDER }
     }
 
-    // ── 아바타 리소스 매핑 ────────────────────────────────────────────────────
+    // ── 액션 아바타 리소스 매핑 ───────────────────────────────────────────────
+
+    fun actionAvatarResId(gender: AvatarGender, actionType: WidgetActionType): Int = when (gender) {
+        AvatarGender.MALE -> when (actionType) {
+            WidgetActionType.MEAL    -> R.drawable.widget_avatar_male_meal_done
+            WidgetActionType.WATER   -> R.drawable.widget_avatar_male_water_done
+            WidgetActionType.STRETCH -> R.drawable.widget_avatar_male_stretch_done
+        }
+        AvatarGender.FEMALE -> when (actionType) {
+            WidgetActionType.MEAL    -> R.drawable.widget_avatar_female_meal_done
+            WidgetActionType.WATER   -> R.drawable.widget_avatar_female_water_done
+            WidgetActionType.STRETCH -> R.drawable.widget_avatar_female_stretch_done
+        }
+    }
+
+    // ── 일반 아바타 리소스 매핑 ───────────────────────────────────────────────
 
     fun avatarResId(category: HabitCategory, gender: AvatarGender): Int = when (gender) {
         AvatarGender.MALE -> when (category) {
