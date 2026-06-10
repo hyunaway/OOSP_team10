@@ -92,7 +92,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                             )
                         )
                         ep.markUserActiveUseCase()("widget_water_log")
-                        WidgetUpdateHelper.updateAllWidgets(context)
+                        WidgetUpdateHelper.showActionAvatarThenUpdate(context, WidgetActionType.WATER)
                     } catch (_: Exception) {}
                 }
             }
@@ -155,7 +155,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                             triggerType = "widget",
                         )
                         ep.markUserActiveUseCase()("widget_meal_log")
-                        WidgetUpdateHelper.updateAllWidgets(context)
+                        WidgetUpdateHelper.showActionAvatarThenUpdate(context, WidgetActionType.MEAL)
                     } catch (_: Exception) {}
                 }
             }
@@ -198,8 +198,10 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                                 triggerType = "widget",
                             )
                             ep.markUserActiveUseCase()("widget_meal_log")
+                            WidgetUpdateHelper.showActionAvatarThenUpdate(context, WidgetActionType.MEAL)
+                        } else {
+                            WidgetUpdateHelper.updateAllWidgets(context)
                         }
-                        WidgetUpdateHelper.updateAllWidgets(context)
                     } catch (_: Exception) {}
                 }
             }
@@ -211,11 +213,18 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                 val alreadyRunning = startedAt > 0L &&
                     (now - startedAt) < StretchTimerService.STRETCH_DURATION_MS
                 if (!alreadyRunning) {
+                    // 타이머 시작 시간을 먼저 기록해 getTimerState가 isRunning=true를 즉시 반환하도록 함
+                    prefs.edit()
+                        .putLong(StretchTimerService.KEY_TIMER_STARTED_AT, System.currentTimeMillis())
+                        .apply()
                     val serviceIntent = Intent(context, StretchTimerService::class.java)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         context.startForegroundService(serviceIntent)
                     } else {
                         context.startService(serviceIntent)
+                    }
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try { WidgetUpdateHelper.updateAllWidgets(context) } catch (_: Exception) {}
                     }
                 }
             }
@@ -223,7 +232,7 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                 WidgetUpdateHelper.updateAllWidgetsSync(context)
             }
             ACTION_OPEN_MEAL_EDIT -> {
-                launchDeepLink(context, Uri.parse("app://habittracker/meal?source=widget"))
+                launchDeepLink(context, Uri.parse("app://habittracker/meal?type=&source=widget"))
             }
             ACTION_OPEN_STRETCH -> {
                 launchDeepLink(context, Uri.parse("app://habittracker/stretch?trigger=widget"))
@@ -382,10 +391,10 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
         }
 
         private fun deepLinkUri(category: HabitCategory): Uri? = when (category) {
-            HabitCategory.MEAL    -> Uri.parse("app://habittracker/meal?source=widget")
+            HabitCategory.MEAL    -> Uri.parse("app://habittracker/meal?type=&source=widget")
             HabitCategory.WATER   -> Uri.parse("app://habittracker/water?source=widget")
-            HabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?source=widget")
-            HabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?source=widget")
+            HabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?app=&interventionId=-1&source=widget")
+            HabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?trigger=widget")
             HabitCategory.GOOD    -> null
         }
 

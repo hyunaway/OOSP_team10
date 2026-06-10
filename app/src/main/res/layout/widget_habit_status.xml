@@ -29,32 +29,32 @@
 
             <ImageView
                 android:id="@+id/widget_status_icon_meal"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:src="@drawable/widget_dot_inactive"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/widget_dot_meal"
                 android:contentDescription="" />
 
             <ImageView
                 android:id="@+id/widget_status_icon_water"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:src="@drawable/widget_dot_inactive"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/widget_dot_water"
                 android:contentDescription=""
                 android:layout_marginLeft="4dp" />
 
             <ImageView
                 android:id="@+id/widget_status_icon_digital"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:src="@drawable/widget_dot_inactive"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/widget_dot_digital"
                 android:contentDescription=""
                 android:layout_marginLeft="4dp" />
 
             <ImageView
                 android:id="@+id/widget_status_icon_stretch"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:src="@drawable/widget_dot_inactive"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/widget_dot_stretch"
                 android:contentDescription=""
                 android:layout_marginLeft="4dp" />
 

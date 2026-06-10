@@ -6,6 +6,9 @@ data class MealWidgetData(
     val lastMealTime: LocalDateTime?,
     val todayRecordCount: Int,
     val targetMealCount: Int = 3,
+    val breakfastLogged: Boolean = false,
+    val lunchLogged: Boolean = false,
+    val dinnerLogged: Boolean = false,
 )
 
 data class WaterWidgetData(
@@ -27,6 +30,7 @@ data class StretchTimerWidgetState(
 data class StretchWidgetData(
     val lastStretchAtMillis: Long?,
     val totalCount: Int,
+    val personalizedGoalCount: Int = 5,
     val timerState: StretchTimerWidgetState,
 )
 
@@ -53,3 +57,5 @@ data class HabitCardState(
 enum class HabitCategory { MEAL, WATER, DIGITAL, STRETCH, GOOD }
 
 enum class RiskLevel { NORMAL, WARNING, DANGER }
+
+enum class WidgetActionType { MEAL, WATER, STRETCH }

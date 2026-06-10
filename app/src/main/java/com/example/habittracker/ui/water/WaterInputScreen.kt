@@ -42,7 +42,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.habittracker.domain.model.WaterTodayStatus
+import com.example.habittracker.ui.avatar.AvatarState
 import com.example.habittracker.ui.avatar.SharedAvatarViewModel
+import com.example.habittracker.ui.avatar.forCategory
 import com.example.habittracker.ui.components.CategoryScaffold
 import com.example.habittracker.ui.theme.HabitCardWhite
 import com.example.habittracker.ui.theme.HabitCategoryStyle
@@ -82,7 +84,7 @@ fun WaterInputScreen(
         category = HabitCategoryStyle.WATER,
         title = "해빗프렌즈",
         speech = speech,
-        avatarUiState = avatarUiState,
+        avatarUiState = avatarUiState.forCategory(AvatarState.WATER_LACK),
         onSettingsClick = { navController.navigate("settings") },
         onReportsClick = { navController.navigate("reports") },
     ) {

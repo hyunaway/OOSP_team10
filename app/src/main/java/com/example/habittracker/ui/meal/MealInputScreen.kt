@@ -44,7 +44,9 @@ import com.example.habittracker.data.entity.MealLogEntity
 import com.example.habittracker.data.model.MealType
 import com.example.habittracker.domain.model.MealTodayStatus
 import com.example.habittracker.domain.usecase.meal.MealInterventionIntensity
+import com.example.habittracker.ui.avatar.AvatarState
 import com.example.habittracker.ui.avatar.SharedAvatarViewModel
+import com.example.habittracker.ui.avatar.forCategory
 import com.example.habittracker.ui.components.CategoryScaffold
 import com.example.habittracker.ui.theme.HabitCardWhite
 import com.example.habittracker.ui.theme.HabitCategoryStyle
@@ -166,7 +168,7 @@ fun MealInputScreen(
         category = HabitCategoryStyle.MEAL,
         title = "식사",
         speech = visibleMessage ?: "현재 시간과 생활 패턴에 맞춰 식사 리듬을 챙겨봐요.",
-        avatarUiState = avatarUiState,
+        avatarUiState = avatarUiState.forCategory(AvatarState.MEAL_LACK),
         onSettingsClick = { navController.navigate("settings") },
         onReportsClick = { navController.navigate("reports") },
     ) {
@@ -258,7 +260,7 @@ private fun MealStatusCard(
                     modifier = Modifier.size(44.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("식", style = MaterialTheme.typography.titleLarge)
+                        Text("🍽️", style = MaterialTheme.typography.titleLarge)
                     }
                 }
                 Spacer(modifier = Modifier.width(HabitSpacing.sm))

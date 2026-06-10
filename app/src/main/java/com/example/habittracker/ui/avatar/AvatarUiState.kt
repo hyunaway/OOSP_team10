@@ -13,3 +13,17 @@ data class AvatarUiState(
 ) {
     val hasMultipleIssues: Boolean get() = activeStates.size > 1
 }
+
+fun AvatarUiState.forCategory(categoryState: AvatarState): AvatarUiState {
+    val isCategoryRisk = when (categoryState) {
+        AvatarState.MEAL_LACK ->
+            AvatarState.MEAL_LACK in activeStates || primaryState == AvatarState.WARNING
+        else -> categoryState in activeStates
+    }
+    val resolvedState = if (isCategoryRisk) categoryState else AvatarState.GOOD
+    return copy(
+        primaryState = resolvedState,
+        imageResId = AvatarImageMapper.resolve(gender, resolvedState),
+        bubbleMessage = resolvedState.bubbleMessage,
+    )
+}

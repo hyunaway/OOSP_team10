@@ -34,7 +34,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.habittracker.Routes
 import com.example.habittracker.domain.model.DigitalTodayStatus
+import com.example.habittracker.ui.avatar.AvatarState
 import com.example.habittracker.ui.avatar.SharedAvatarViewModel
+import com.example.habittracker.ui.avatar.forCategory
 import com.example.habittracker.ui.components.CategoryScaffold
 import com.example.habittracker.ui.theme.DigitalBackground
 import com.example.habittracker.ui.theme.DigitalContainer
@@ -77,7 +79,7 @@ fun DigitalInputScreen(
         category = HabitCategoryStyle.DIGITAL,
         title = "디지털",
         speech = speech,
-        avatarUiState = avatarUiState,
+        avatarUiState = avatarUiState.forCategory(AvatarState.DIGITAL_OVERUSE),
         onSettingsClick = { navController.navigate("settings") },
         onReportsClick = { navController.navigate("reports") },
     ) {
@@ -192,7 +194,7 @@ private fun DigitalStatusCard(
                         modifier = Modifier.size(44.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("폰", style = MaterialTheme.typography.labelMedium)
+                            Text("📱", style = MaterialTheme.typography.titleLarge)
                         }
                     }
                     Spacer(modifier = Modifier.width(HabitSpacing.sm))
@@ -215,7 +217,7 @@ private fun DigitalStatusCard(
                     color = DigitalBackground,
                 ) {
                     Text(
-                        text = "습관 목표 · 하루 ${formatMinutes(thresholdMinutes)} 이하",
+                        text = "목표 · ${formatMinutes(thresholdMinutes)} 이하",
                         modifier = Modifier.padding(
                             horizontal = HabitSpacing.sm,
                             vertical = HabitSpacing.xxs,

@@ -8,6 +8,8 @@ import android.content.Intent
 import android.net.Uri
 import android.view.View
 import android.widget.RemoteViews
+import java.time.LocalTime
+import kotlinx.coroutines.delay
 import com.example.habittracker.MainActivity
 import com.example.habittracker.R
 import com.example.habittracker.data.local.UserPreferenceManager
@@ -17,6 +19,7 @@ import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.digital.GetTodayDigitalStatusUseCase
 import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
 import com.example.habittracker.domain.usecase.meal.GetTodayMealStatusUseCase
+import com.example.habittracker.domain.usecase.stretch.CheckStretchInterventionNeededUseCase
 import com.example.habittracker.domain.usecase.stretch.GetTodayStretchStatusUseCase
 import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
 import dagger.hilt.EntryPoint
@@ -44,17 +47,33 @@ object WidgetUpdateHelper {
             HabitStatusWidgetProvider.refreshPendingIntent(context),
         )
 
-        // 카테고리 도트
-        fun dotResId(category: HabitCategory, activeRes: Int): Int {
+        // 카테고리 도트 — 정상: 카테고리 아이콘, 위험: 불꽃 후광 아이콘
+        fun dotResId(category: HabitCategory): Int {
             val isRisk = state.categoryCards
                 .firstOrNull { it.category == category }
                 ?.riskLevel != RiskLevel.NORMAL
-            return if (isRisk) activeRes else R.drawable.widget_dot_inactive
+            return if (isRisk) {
+                when (category) {
+                    HabitCategory.MEAL    -> R.drawable.widget_dot_meal_risk
+                    HabitCategory.WATER   -> R.drawable.widget_dot_water_risk
+                    HabitCategory.DIGITAL -> R.drawable.widget_dot_digital_risk
+                    HabitCategory.STRETCH -> R.drawable.widget_dot_stretch_risk
+                    HabitCategory.GOOD    -> R.drawable.widget_dot_inactive
+                }
+            } else {
+                when (category) {
+                    HabitCategory.MEAL    -> R.drawable.widget_dot_meal
+                    HabitCategory.WATER   -> R.drawable.widget_dot_water
+                    HabitCategory.DIGITAL -> R.drawable.widget_dot_digital
+                    HabitCategory.STRETCH -> R.drawable.widget_dot_stretch
+                    HabitCategory.GOOD    -> R.drawable.widget_dot_inactive
+                }
+            }
         }
-        views.setImageViewResource(R.id.widget_status_icon_meal,    dotResId(HabitCategory.MEAL,    R.drawable.widget_dot_meal))
-        views.setImageViewResource(R.id.widget_status_icon_water,   dotResId(HabitCategory.WATER,   R.drawable.widget_dot_water))
-        views.setImageViewResource(R.id.widget_status_icon_digital, dotResId(HabitCategory.DIGITAL, R.drawable.widget_dot_digital))
-        views.setImageViewResource(R.id.widget_status_icon_stretch, dotResId(HabitCategory.STRETCH, R.drawable.widget_dot_stretch))
+        views.setImageViewResource(R.id.widget_status_icon_meal,    dotResId(HabitCategory.MEAL))
+        views.setImageViewResource(R.id.widget_status_icon_water,   dotResId(HabitCategory.WATER))
+        views.setImageViewResource(R.id.widget_status_icon_digital, dotResId(HabitCategory.DIGITAL))
+        views.setImageViewResource(R.id.widget_status_icon_stretch, dotResId(HabitCategory.STRETCH))
 
         // ViewFlipper: 현재 카드가 항상 index 0이 되도록 순서를 회전해서 추가
         // setDisplayedChild()가 동적 children에서 불안정하므로 rotation 방식 사용
@@ -109,6 +128,14 @@ object WidgetUpdateHelper {
         CoroutineScope(Dispatchers.IO).launch {
             updateAllWidgets(context)
         }
+    }
+
+    suspend fun showActionAvatarThenUpdate(context: Context, actionType: WidgetActionType) {
+        WidgetActionLock.lock(context, actionType)
+        updateAllWidgets(context)
+        delay(1_000)
+        WidgetActionLock.unlock(context)
+        updateAllWidgets(context)
     }
 
     fun updateWidget(
@@ -169,30 +196,67 @@ object WidgetUpdateHelper {
     }
 
     private fun buildMealCardView(context: Context, item: HabitCardState, widgetId: Int, base: Int): RemoteViews {
-        val allDone = item.mealData?.let { it.todayRecordCount >= it.targetMealCount } ?: false
+        val mealData = item.mealData
+        val breakfastLogged = mealData?.breakfastLogged ?: false
+        val lunchLogged     = mealData?.lunchLogged     ?: false
+        val dinnerLogged    = mealData?.dinnerLogged    ?: false
+
+        val currentMealLogged = when (LocalTime.now().hour) {
+            in 0..9   -> breakfastLogged
+            in 10..15 -> lunchLogged
+            else      -> dinnerLogged
+        }
+        val allDone = mealData?.let { it.todayRecordCount >= it.targetMealCount } ?: false
+        val buttonDisabled = currentMealLogged || allDone
+
         return RemoteViews(context.packageName, R.layout.widget_meal_card_item).apply {
             setTextViewText(R.id.widget_card_name,   "식사")
             setTextViewText(R.id.widget_card_status, item.statusLabel)
-            
+
+            // 끼니별 원 상태
+            setImageViewResource(
+                R.id.widget_meal_circle_breakfast,
+                if (breakfastLogged) R.drawable.widget_meal_circle_on else R.drawable.widget_meal_circle_off,
+            )
+            setImageViewResource(
+                R.id.widget_meal_circle_lunch,
+                if (lunchLogged) R.drawable.widget_meal_circle_on else R.drawable.widget_meal_circle_off,
+            )
+            setImageViewResource(
+                R.id.widget_meal_circle_dinner,
+                if (dinnerLogged) R.drawable.widget_meal_circle_on else R.drawable.widget_meal_circle_off,
+            )
+
             if (widgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
                 setOnClickPendingIntent(
                     R.id.widget_card_name,
                     navigatePendingIntent(context, HabitCategory.MEAL, base + 1),
                 )
-                if (allDone) {
-                    setFloat(R.id.widget_btn_eat, "setAlpha", 0.5f)
-                } else {
-                    setFloat(R.id.widget_btn_eat, "setAlpha", 1.0f)
-                    setOnClickPendingIntent(
-                        R.id.widget_btn_eat,
-                        broadcastPI(context, HabitStatusWidgetProvider.ACTION_MEAL_QUICK_RECORD, base + 2),
-                    )
+                val mealLocked = WidgetActionLock.getLockedAction(context) == WidgetActionType.MEAL
+                when {
+                    mealLocked -> {
+                        setTextViewText(R.id.widget_btn_eat, "기록 완료!")
+                        setFloat(R.id.widget_btn_eat, "setAlpha", 0.5f)
+                    }
+                    buttonDisabled -> {
+                        setTextViewText(R.id.widget_btn_eat, "체크완료")
+                        setFloat(R.id.widget_btn_eat, "setAlpha", 0.5f)
+                    }
+                    else -> {
+                        setTextViewText(R.id.widget_btn_eat, "먹었어요")
+                        setFloat(R.id.widget_btn_eat, "setAlpha", 1.0f)
+                        setOnClickPendingIntent(
+                            R.id.widget_btn_eat,
+                            broadcastPI(context, HabitStatusWidgetProvider.ACTION_MEAL_QUICK_RECORD, base + 2),
+                        )
+                    }
                 }
                 setOnClickPendingIntent(
                     R.id.widget_btn_edit_meal,
                     navigatePendingIntent(context, HabitCategory.MEAL, base + 3),
                 )
             } else {
+                setTextViewText(R.id.widget_btn_eat, "먹었어요")
                 setFloat(R.id.widget_btn_eat, "setAlpha", 0.5f)
                 setFloat(R.id.widget_btn_edit_meal, "setAlpha", 0.5f)
             }
@@ -217,10 +281,15 @@ object WidgetUpdateHelper {
                     R.id.widget_card_name,
                     navigatePendingIntent(context, HabitCategory.WATER, base + 1),
                 )
-                setOnClickPendingIntent(
-                    R.id.widget_btn_water_log,
-                    broadcastPI(context, HabitStatusWidgetProvider.ACTION_ADD_WATER_250, base + 2),
-                )
+                val waterLocked = WidgetActionLock.getLockedAction(context) == WidgetActionType.WATER
+                setTextViewText(R.id.widget_btn_water_log, if (waterLocked) "기록 완료!" else "물 한잔")
+                setFloat(R.id.widget_btn_water_log, "setAlpha", if (waterLocked) 0.5f else 1.0f)
+                if (!waterLocked) {
+                    setOnClickPendingIntent(
+                        R.id.widget_btn_water_log,
+                        broadcastPI(context, HabitStatusWidgetProvider.ACTION_ADD_WATER_250, base + 2),
+                    )
+                }
                 setOnClickPendingIntent(
                     R.id.widget_btn_water_edit,
                     navigatePendingIntent(context, HabitCategory.WATER, base + 3),
@@ -347,10 +416,10 @@ object WidgetUpdateHelper {
 
     private fun navigatePendingIntent(context: Context, category: HabitCategory, requestCode: Int): PendingIntent {
         val uri = when (category) {
-            HabitCategory.MEAL    -> Uri.parse("app://habittracker/meal?source=widget")
+            HabitCategory.MEAL    -> Uri.parse("app://habittracker/meal?type=&source=widget")
             HabitCategory.WATER   -> Uri.parse("app://habittracker/water?source=widget")
-            HabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?source=widget")
-            HabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?source=widget")
+            HabitCategory.DIGITAL -> Uri.parse("app://habittracker/digital?app=&interventionId=-1&source=widget")
+            HabitCategory.STRETCH -> Uri.parse("app://habittracker/stretch?trigger=widget")
             HabitCategory.GOOD    -> null
         }
         val intent = if (uri != null) {
@@ -395,6 +464,7 @@ interface WidgetDependenciesEntryPoint {
     fun getTodayDigitalStatusUseCase(): GetTodayDigitalStatusUseCase
     fun getTodayMealStatusUseCase(): GetTodayMealStatusUseCase
     fun getCurrentMealInterventionStatusUseCase(): GetCurrentMealInterventionStatusUseCase
+    fun checkStretchInterventionNeededUseCase(): CheckStretchInterventionNeededUseCase
     fun getTodayStretchStatusUseCase(): GetTodayStretchStatusUseCase
     fun mealRepository(): MealRepository
     fun stretchRepository(): StretchRepository
