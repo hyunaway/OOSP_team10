@@ -10,6 +10,10 @@ import com.example.habittracker.domain.repository.MealRepository
 import com.example.habittracker.domain.repository.StretchRepository
 import com.example.habittracker.domain.repository.WaterRepository
 import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
+import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
+import com.example.habittracker.domain.usecase.stretch.CheckStretchInterventionNeededUseCase
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +39,8 @@ class SharedAvatarViewModel @Inject constructor(
     private val digitalRepository: DigitalRepository,
     private val stretchRepository: StretchRepository,
     private val getCurrentMealInterventionStatusUseCase: GetCurrentMealInterventionStatusUseCase,
+    private val checkWaterInterventionNeededUseCase: CheckWaterInterventionNeededUseCase,
+    private val checkStretchInterventionNeededUseCase: CheckStretchInterventionNeededUseCase,
     private val personalizationResolver: PersonalizationResolver,
 ) : ViewModel() {
 
@@ -52,29 +58,28 @@ class SharedAvatarViewModel @Inject constructor(
                 userPreferenceManager.digitalInterventionBaseDurationFlow,
                 userPreferenceManager.categoryPriorityOrderFlow
             ) { flows ->
-                val meal = flows[0] as com.example.habittracker.domain.model.MealTodayStatus
-                val water = flows[1] as com.example.habittracker.domain.model.WaterTodayStatus
                 val digital = flows[2] as com.example.habittracker.domain.model.DigitalTodayStatus
-                val stretch = flows[3] as com.example.habittracker.domain.model.StretchTodayStatus
                 val digitalLimit = flows[4] as Int
                 val priorityOrderStr = flows[5] as String
 
                 val mealInterventionStatus = getCurrentMealInterventionStatusUseCase()
+                val waterInterventionStatus = checkWaterInterventionNeededUseCase()
+                val stretchInterventionStatus = checkStretchInterventionNeededUseCase()
+
                 val priorityOrder = priorityOrderStr.split(",")
                     .map { it.trim().uppercase() }
                     .filter { it.isNotBlank() }
-                val stretchGoal = personalizationResolver.resolveStretchGoalCount()
                 val resolved = AvatarStateResolver.resolve(
-                    mealStatus = meal,
-                    waterStatus = water,
+                    mealIntervention = mealInterventionStatus,
+                    waterIntervention = waterInterventionStatus,
                     digitalStatus = digital,
-                    stretchStatus = stretch,
+                    stretchIntervention = stretchInterventionStatus,
                     priorityOrder = priorityOrder,
                     digitalLimitMinutes = digitalLimit,
-                    isMealActionable = mealInterventionStatus.isActionable,
-                    stretchGoalCount = stretchGoal,
+                    isThreeDaySkip = false,
+                    allMeals3Days = false
                 )
-                Pair(resolved, mealInterventionStatus)
+                Triple(resolved, mealInterventionStatus, digital)
             }
 
             // 최근 3일 식사 이력을 플로우로 계속 관찰하여 결식/규칙성 여부 판별
@@ -111,32 +116,56 @@ class SharedAvatarViewModel @Inject constructor(
                 userPreferenceManager.avatarGenderFlow,
                 userPreferenceManager.userNameFlow,
                 todayHabitsFlow,
-                mealHistoryFlow
-            ) { genderStr, name, resolvedWithMealIntervention, mealHistory ->
+                mealHistoryFlow,
+                userPreferenceManager.digitalInterventionBaseDurationFlow,
+                userPreferenceManager.categoryPriorityOrderFlow
+            ) { flowsArray ->
+                val genderStr = flowsArray[0] as String
+                val name = flowsArray[1] as String
+                @Suppress("UNCHECKED_CAST")
+                val todayHabitsResult = flowsArray[2] as Triple<AvatarResolveResult, com.example.habittracker.domain.usecase.meal.MealCurrentInterventionStatus, com.example.habittracker.domain.model.DigitalTodayStatus>
+                @Suppress("UNCHECKED_CAST")
+                val mealHistory = flowsArray[3] as Pair<Boolean, Boolean>
+                val digitalLimit = flowsArray[4] as Int
+                val priorityOrderStr = flowsArray[5] as String
+
                 val gender = AvatarGender.fromString(genderStr)
-                val (resolved, mealInterventionStatus) = resolvedWithMealIntervention
+                val (resolvedResult, mealInterventionStatus, digital) = todayHabitsResult
                 val (isThreeDaySkip, allMeals3Days) = mealHistory
 
-                val finalState = when {
-                    allMeals3Days -> AvatarState.GOOD
-                    isThreeDaySkip && mealInterventionStatus.isActionable -> AvatarState.WARNING
-                    else -> resolved.primaryState
-                }
+                val priorityOrder = priorityOrderStr.split(",")
+                    .map { it.trim().uppercase() }
+                    .filter { it.isNotBlank() }
 
-                val imageResId = AvatarImageMapper.resolve(gender, finalState)
+                val waterInterventionStatus = checkWaterInterventionNeededUseCase()
+                val stretchInterventionStatus = checkStretchInterventionNeededUseCase()
+
+                val finalResolved = AvatarStateResolver.resolve(
+                    mealIntervention = mealInterventionStatus,
+                    waterIntervention = waterInterventionStatus,
+                    digitalStatus = digital,
+                    stretchIntervention = stretchInterventionStatus,
+                    priorityOrder = priorityOrder,
+                    digitalLimitMinutes = digitalLimit,
+                    isThreeDaySkip = isThreeDaySkip,
+                    allMeals3Days = allMeals3Days
+                )
+
+                val imageResId = AvatarImageMapper.resolve(gender, finalResolved.primaryState)
 
                 AvatarUiState(
                     gender = gender,
                     userName = name.ifEmpty { "나" },
-                    primaryState = finalState,
-                    activeStates = resolved.activeStates,
+                    primaryState = finalResolved.primaryState,
+                    activeStates = finalResolved.activeStates,
                     bubbleMessage = AvatarStateResolver.bubbleMessageFor(
-                        primaryState = finalState,
+                        primaryState = finalResolved.primaryState,
                         mealInterventionStatus = mealInterventionStatus,
                     ),
                     imageResId = imageResId
                 )
             }
+                .flowOn(Dispatchers.Default)
                 .catch { /* 기본값 유지 */ }
                 .collect { state -> _uiState.value = state }
         }

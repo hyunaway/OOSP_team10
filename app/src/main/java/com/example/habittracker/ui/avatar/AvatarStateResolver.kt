@@ -9,27 +9,28 @@ import com.example.habittracker.domain.usecase.meal.MealCurrentInterventionStatu
 import com.example.habittracker.domain.usecase.meal.MealInterventionIntensity
 import com.example.habittracker.data.model.MealType
 
+import com.example.habittracker.domain.model.WaterInterventionStatus
+import com.example.habittracker.domain.model.WaterShortageLevel
+import com.example.habittracker.domain.model.StretchInterventionStatus
+
 object AvatarStateResolver {
 
-    private const val WATER_LACK_THRESHOLD = 0.5f
     private const val DEFAULT_DIGITAL_LIMIT_MINUTES = 120
-    private const val MEAL_MIN_LOGGED_COUNT = 2
-    private const val STRETCH_GOAL_COUNT = 5
 
     fun resolve(
-        mealStatus: MealTodayStatus,
-        waterStatus: WaterTodayStatus,
+        mealIntervention: MealCurrentInterventionStatus,
+        waterIntervention: WaterInterventionStatus,
         digitalStatus: DigitalTodayStatus,
-        stretchStatus: StretchTodayStatus,
+        stretchIntervention: StretchInterventionStatus,
         priorityOrder: List<String>,
         digitalLimitMinutes: Int = DEFAULT_DIGITAL_LIMIT_MINUTES,
-        isMealActionable: Boolean = true,
-        stretchGoalCount: Int = STRETCH_GOAL_COUNT,
+        isThreeDaySkip: Boolean = false,
+        allMeals3Days: Boolean = false,
     ): AvatarResolveResult {
-        val isMealLack = isMealActionable && isMealLacking(mealStatus)
-        val isWaterLack = isWaterLacking(waterStatus)
-        val isDigitalOveruse = isDigitalOveruse(digitalStatus, digitalLimitMinutes)
-        val isStretchLack = isStretchLacking(stretchStatus, stretchGoalCount)
+        val isMealLack = mealIntervention.isActionable
+        val isWaterLack = waterIntervention.shortageLevel != WaterShortageLevel.NONE
+        val isDigitalOveruse = digitalStatus.totalUsageMinutes > digitalLimitMinutes
+        val isStretchLack = stretchIntervention.isNeedStretch
 
         val activeStates = buildList {
             if (isMealLack) add(AvatarState.MEAL_LACK)
@@ -38,45 +39,37 @@ object AvatarStateResolver {
             if (isStretchLack) add(AvatarState.STRETCH_LACK)
         }
 
-        // 우선순위가 높은 순서대로 부족한 상태가 발견되면 그것을 primaryState로 지정
-        var primaryState = AvatarState.GOOD
-        for (category in priorityOrder) {
-            val isLack = when (category.uppercase()) {
-                "MEAL" -> isMealLack
-                "WATER" -> isWaterLack
-                "DIGITAL" -> isDigitalOveruse
-                "STRETCH" -> isStretchLack
-                else -> false
-            }
-            if (isLack) {
-                primaryState = when (category.uppercase()) {
-                    "MEAL" -> AvatarState.MEAL_LACK
-                    "WATER" -> AvatarState.WATER_LACK
-                    "DIGITAL" -> AvatarState.DIGITAL_OVERUSE
-                    "STRETCH" -> AvatarState.STRETCH_LACK
-                    else -> AvatarState.GOOD
+        val primaryState = when {
+            allMeals3Days -> AvatarState.GOOD
+            isThreeDaySkip && mealIntervention.isActionable -> AvatarState.WARNING
+            else -> {
+                // 우선순위가 높은 순서대로 부족한 상태가 발견되면 그것을 primaryState로 지정
+                var state = AvatarState.GOOD
+                for (category in priorityOrder) {
+                    val isLack = when (category.uppercase()) {
+                        "MEAL" -> isMealLack
+                        "WATER" -> isWaterLack
+                        "DIGITAL" -> isDigitalOveruse
+                        "STRETCH" -> isStretchLack
+                        else -> false
+                    }
+                    if (isLack) {
+                        state = when (category.uppercase()) {
+                            "MEAL" -> AvatarState.MEAL_LACK
+                            "WATER" -> AvatarState.WATER_LACK
+                            "DIGITAL" -> AvatarState.DIGITAL_OVERUSE
+                            "STRETCH" -> AvatarState.STRETCH_LACK
+                            else -> AvatarState.GOOD
+                        }
+                        break
+                    }
                 }
-                break
+                state
             }
         }
 
         return AvatarResolveResult(primaryState = primaryState, activeStates = activeStates)
     }
-
-    private fun isMealLacking(status: MealTodayStatus): Boolean {
-        val loggedCount = listOf(status.breakfastLogged, status.lunchLogged, status.dinnerLogged)
-            .count { it }
-        return loggedCount < MEAL_MIN_LOGGED_COUNT
-    }
-
-    private fun isWaterLacking(status: WaterTodayStatus): Boolean =
-        status.achievementRate < WATER_LACK_THRESHOLD
-
-    private fun isDigitalOveruse(status: DigitalTodayStatus, limitMinutes: Int): Boolean =
-        status.totalUsageMinutes > limitMinutes
-
-    private fun isStretchLacking(status: StretchTodayStatus, goalCount: Int): Boolean =
-        status.totalCount < goalCount
 
     fun bubbleMessageFor(
         primaryState: AvatarState,
