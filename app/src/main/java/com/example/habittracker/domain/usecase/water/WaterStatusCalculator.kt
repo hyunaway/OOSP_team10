@@ -56,13 +56,23 @@ class WaterStatusCalculator @Inject constructor() {
             shortageMl >= resolvedTolerance &&
             isEnoughAfterLastDrink
 
+        val isRecentlyDrankButStillShort = activePosition != null &&
+            shortageMl >= resolvedTolerance &&
+            !isEnoughAfterLastDrink &&
+            currentAmountMl < recommendedAmountMl
+
         return WaterInterventionStatus(
             recommendedAmountMl = recommendedAmountMl,
             currentAmountMl = currentAmountMl,
             shortageMl = shortageMl,
             isNeedWater = isNeedWater,
             shortageLevel = shortageLevel,
-            message = messageFor(isNeedWater, shortageLevel, isInsidePeak),
+            message = messageFor(
+                isNeedWater = isNeedWater,
+                shortageLevel = shortageLevel,
+                isInsidePeak = isInsidePeak,
+                isRecentlyDrankButStillShort = isRecentlyDrankButStillShort,
+            ),
         )
     }
 
@@ -146,7 +156,9 @@ class WaterStatusCalculator @Inject constructor() {
         isNeedWater: Boolean,
         shortageLevel: WaterShortageLevel,
         isInsidePeak: Boolean = false,
+        isRecentlyDrankButStillShort: Boolean = false,
     ): String {
+        if (isRecentlyDrankButStillShort) return "방금 물을 마셨어요. 조금 뒤에 다시 확인할게요."
         if (!isNeedWater) return "좋아요. 지금 물 섭취 리듬은 괜찮아요."
         if (isInsidePeak) return "평소에 물을 자주 드시던 시간이에요! 건강을 위해 시원한 물 한 잔 어때요?"
         return when (shortageLevel) {
