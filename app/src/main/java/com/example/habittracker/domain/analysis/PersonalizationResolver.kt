@@ -93,19 +93,10 @@ class PersonalizationResolver @Inject constructor(
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * 스트레칭 목표 횟수.
-     * ready = true 이면 DataStore 저장 값 사용 (AnalyzeStretchPatternUseCase가 갱신).
-     * Fallback: [DefaultValues.STRETCH_GOAL_COUNT] = 4.
+     * 스트레칭 목표 횟수. (스트레칭 하루 목표치 개인화 비활성화로 항상 기본값 4를 반환)
      */
     suspend fun resolveStretchGoalCount(): Int {
-        val ready = safeFirst(prefs.stretchPersonalizationReadyFlow, false)
-        if (!ready) return DefaultValues.STRETCH_GOAL_COUNT
-        return try {
-            val stored = prefs.stretchGoalCountFlow.first()
-            if (stored in 1..6) stored else DefaultValues.STRETCH_GOAL_COUNT
-        } catch (_: Exception) {
-            DefaultValues.STRETCH_GOAL_COUNT
-        }
+        return DefaultValues.STRETCH_GOAL_COUNT
     }
 
     // ─────────────────────────────────────────────────────────────────────────

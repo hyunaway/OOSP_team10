@@ -26,16 +26,7 @@ class CalculatePersonalizedStretchGoalUseCase @Inject constructor(
         activeStartedAtMillis: Long,
         bedTime: String,
     ): Int? {
-        // ── 1. 개인화 준비 완료: DataStore 저장 목표 우선 ────────────────────
-        val ready = try { userPreferenceManager.stretchPersonalizationReadyFlow.first() }
-                    catch (_: Exception) { false }
-        if (ready) {
-            val stored = try { userPreferenceManager.stretchGoalCountFlow.first() }
-                         catch (_: Exception) { -1 }
-            if (stored in 1..6) return stored
-        }
-
-        // ── 2. Fallback: 활동 가능 시간 기반 계산 (기존 로직 유지) ───────────
+        // ── Fallback: 활동 가능 시간 기반 계산 (기존 로직 유지) ───────────
         val activeStartMinutes = TimeCalculationUtils.minutesOfDay(activeStartedAtMillis)
         val bedMinutes = TimeCalculationUtils.parseBedTimeMinutes(bedTime) ?: (24 * 60)
         val availableMinutes = TimeCalculationUtils.minutesUntilBed(activeStartMinutes, bedMinutes)

@@ -132,20 +132,19 @@ class PersonalizationResolverTest {
         assertEquals(DefaultValues.STRETCH_GOAL_COUNT, result)
     }
 
-    // ─── 스트레칭 목표: ready=true, stored=3 → 3 ──────────────────────────────────
+    // ─── 스트레칭 목표: 개인화 비활성화로 언제나 기본값 반환 ──────────────────────
     @Test
-    fun `resolveStretchGoalCount - ready stored value 3 returned`() = runBlocking {
+    fun `resolveStretchGoalCount - ready returns default 4`() = runBlocking {
         every { prefs.stretchPersonalizationReadyFlow } returns flowOf(true)
         every { prefs.stretchGoalCountFlow } returns flowOf(3)
 
         val result = resolver.resolveStretchGoalCount()
 
-        assertEquals(3, result)
+        assertEquals(DefaultValues.STRETCH_GOAL_COUNT, result)
     }
 
-    // ─── 스트레칭 목표: ready=true, stored=0 (범위 밖) → default ─────────────────
     @Test
-    fun `resolveStretchGoalCount - ready stored 0 out of range returns default`() = runBlocking {
+    fun `resolveStretchGoalCount - ready stored 0 out of range returns default 4`() = runBlocking {
         every { prefs.stretchPersonalizationReadyFlow } returns flowOf(true)
         every { prefs.stretchGoalCountFlow } returns flowOf(0)
 

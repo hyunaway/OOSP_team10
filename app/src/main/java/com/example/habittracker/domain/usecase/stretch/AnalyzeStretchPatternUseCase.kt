@@ -42,30 +42,16 @@ class AnalyzeStretchPatternUseCase @Inject constructor(
         // 공용 엔진 계산
         val preferredSlot = PersonalizationEngine.calcMostFrequentSlot(slots)
 
-        // 완료율 기반 목표 조정
-        val currentGoal = userPreferenceManager.stretchGoalCountFlow.first()
-        val totalCount  = records.size
-        val completionRate = if (currentGoal > 0) {
-            totalCount.toFloat() / (currentGoal.toFloat() * days)
-        } else {
-            0f
-        }
-        val newGoal = when {
-            completionRate >= 0.8f -> (currentGoal + 1).coerceIn(1, 6)
-            else                   -> currentGoal
-        }
-
         // 게이트 입력 구성
         val hasRecentRecord = dates.any { it >= LocalDate.now().minusDays(3).toString() }
         val gateInput = GateInput(
             daysObserved    = dates.size,
-            volume          = totalCount,
+            volume          = records.size,
             hasRecentRecord = hasRecentRecord,
         )
 
         // 게이트 통과 시에만 DataStore 갱신
         if (GateEvaluator.evaluateGate(gateInput, GateThresholds.STRETCH)) {
-            userPreferenceManager.updateStretchGoalCount(newGoal)
             if (preferredSlot != null) {
                 // 선호 슬롯을 JSON 배열 형태로 저장: ["아침"]
                 userPreferenceManager.updateStretchPreferredTimeSlots("""["$preferredSlot"]""")

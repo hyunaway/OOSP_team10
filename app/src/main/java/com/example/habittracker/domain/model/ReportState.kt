@@ -27,4 +27,8 @@ data class MonthlyReportState(
     val digitalPattern: DigitalPatternResult?,
     val stretchPattern: StretchPatternResult?,
     val overallAchievementRate: Float,
+    val weeklyWaterSnapshots: List<WeeklySnapshot> = emptyList(),
+    val weeklyMealSnapshots: List<WeeklySnapshot> = emptyList(),
+    val weeklyDigitalSnapshots: List<WeeklySnapshot> = emptyList(),
+    val weeklyStretchSnapshots: List<WeeklySnapshot> = emptyList(),
 )

@@ -64,15 +64,16 @@ class WaterRepositoryImpl @Inject constructor(
             combine(
                 waterDao.getLogsBetween(start, Long.MAX_VALUE), // 오늘 자정 이후 기록된 물 로그 목록
                 waterDao.getTotalBetween(start, Long.MAX_VALUE), // 오늘 마신 물의 총량 (ml)
+                userPreferenceManager.waterPersonalizationReadyFlow, // 개인화 준비 상태 추가
                 userPreferenceManager.userWeightKgFlow,         // 개인화 계산용 유저 체중
                 userPreferenceManager.userBmiFlow              // 개인화 계산용 유저 BMI
-            ) { logs, totalMl, weight, bmi ->
+            ) { logs, totalMl, ready, weight, bmi ->
                 val total = totalMl ?: 0
-                // 체중과 BMI가 정상 범위를 벗어난 경우 기본 목표량(2000ml) 적용, 그렇지 않으면 개인화 목표량 계산
-                val goal = if (weight <= 0f || bmi <= 0f) {
-                    WATER_GOAL_ML
-                } else {
+                // 개인화가 준비되었고 체중/BMI가 유효한 경우에만 개인화 목표량 계산, 그렇지 않으면 기본 2000ml 적용
+                val goal = if (ready && weight > 0f && bmi > 0f) {
                     com.example.habittracker.domain.analysis.PersonalizationEngine.calcWaterTarget(weight, bmi)
+                } else {
+                    WATER_GOAL_ML
                 }
                 WaterTodayStatus(
                     totalMl = total,
@@ -114,14 +115,14 @@ class WaterRepositoryImpl @Inject constructor(
         val end = dateToEndTimestamp(endDate)
         return combine(
             waterDao.getLogsBetween(start, end),
+            userPreferenceManager.waterPersonalizationReadyFlow, // 개인화 준비 상태 추가
             userPreferenceManager.userWeightKgFlow,
             userPreferenceManager.userBmiFlow
-        ) { logs, weight, bmi ->
-            // 동적 목표 수분량 계산
-            val goal = if (weight <= 0f || bmi <= 0f) {
-                WATER_GOAL_ML
-            } else {
+        ) { logs, ready, weight, bmi ->
+            val goal = if (ready && weight > 0f && bmi > 0f) {
                 com.example.habittracker.domain.analysis.PersonalizationEngine.calcWaterTarget(weight, bmi)
+            } else {
+                WATER_GOAL_ML
             }
             logs.groupBy { dateOfTimestamp(it.timestamp) } // 날짜별로 그룹화 ("yyyy-MM-dd")
                 .map { (date, dayLogs) ->
