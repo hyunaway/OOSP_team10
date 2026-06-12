@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.habittracker.domain.repository.WaterRepository
 import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.water.AddWaterLogUseCase
+import com.example.habittracker.domain.usecase.water.CheckWaterInterventionNeededUseCase
 import com.example.habittracker.domain.usecase.water.GetTodayWaterStatusUseCase
 import com.example.habittracker.domain.usecase.water.GetWaterHistoryUseCase
 import com.example.habittracker.widget.WidgetUpdateHelper
@@ -24,6 +25,7 @@ import javax.inject.Inject
 class WaterViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val getTodayWaterStatusUseCase: GetTodayWaterStatusUseCase,
+    private val checkWaterInterventionNeededUseCase: CheckWaterInterventionNeededUseCase,
     private val addWaterLogUseCase: AddWaterLogUseCase,
     private val getWaterHistoryUseCase: GetWaterHistoryUseCase,
     private val waterRepository: WaterRepository,
@@ -38,7 +40,19 @@ class WaterViewModel @Inject constructor(
             getTodayWaterStatusUseCase()
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
                 .collect { status ->
-                    _uiState.update { it.copy(loading = false, todayStatus = status) }
+                    val interventionStatus = runCatching {
+                        checkWaterInterventionNeededUseCase()
+                    }.getOrNull()
+                    _uiState.update {
+                        it.copy(
+                            loading = false,
+                            todayStatus = status,
+                            interventionMessage = interventionStatus?.message,
+                            baseGoalMl = interventionStatus?.baseGoalMl,
+                            effectiveGoalMl = interventionStatus?.effectiveGoalMl,
+                            recommendedAmountMl = interventionStatus?.recommendedAmountMl,
+                        )
+                    }
                 }
         }
     }

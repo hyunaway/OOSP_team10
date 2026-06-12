@@ -1,6 +1,8 @@
 package com.example.habittracker.domain.model
 
 data class WaterInterventionStatus(
+    val baseGoalMl: Int,
+    val effectiveGoalMl: Int,
     val recommendedAmountMl: Int,
     val currentAmountMl: Int,
     val shortageMl: Int,

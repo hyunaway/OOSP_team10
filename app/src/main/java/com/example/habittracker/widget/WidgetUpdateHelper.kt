@@ -270,10 +270,12 @@ object WidgetUpdateHelper {
             if (waterData != null) {
                 val currentCups = waterData.currentMl / 250
                 val goalCups    = waterData.goalMl / 250
-                setTextViewText(R.id.widget_water_amount, "${currentCups}잔 / ${goalCups}잔")
+                val recommendedCups = waterData.recommendedMl / 250
+                val recommendedText = if (recommendedCups > 0) " · 권장 ${recommendedCups}잔" else ""
+                setTextViewText(R.id.widget_water_amount, "${currentCups}/${goalCups}잔$recommendedText")
                 setProgressBar(R.id.widget_water_progress, waterData.goalMl, waterData.currentMl, false)
             } else {
-                setTextViewText(R.id.widget_water_amount, "0잔 / 8잔")
+                setTextViewText(R.id.widget_water_amount, "0/8잔")
                 setProgressBar(R.id.widget_water_progress, 100, 0, false)
             }
             if (widgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -315,12 +317,12 @@ object WidgetUpdateHelper {
                 when (item.riskLevel) {
                     RiskLevel.DANGER -> {
                         val excess = (digitalData.usageMinutes - digitalData.goalMinutes).coerceAtLeast(0)
-                        "목표보다 ${excess}분 초과"
+                        "목표 +${excess}분"
                     }
                     else -> {
                         val h = digitalData.usageMinutes / 60
                         val m = digitalData.usageMinutes % 60
-                        if (h > 0) "오늘 사용 ${h}시간 ${m}분" else "오늘 사용 ${m}분"
+                        if (h > 0) "${h}시간 ${m}분 사용" else "${m}분 사용"
                     }
                 }
             } else {
@@ -350,28 +352,28 @@ object WidgetUpdateHelper {
             setTextViewText(R.id.widget_card_name, "스트레칭")
 
             val statusMsg = when {
-                timerState.isRunning   -> "몸을 천천히 풀어주세요"
-                timerState.isCompleted -> "몸이 한결 가벼워졌어요"
+                timerState.isRunning   -> "스트레칭 중"
+                timerState.isCompleted -> "방금 완료했어요"
                 item.riskLevel == RiskLevel.WARNING || item.riskLevel == RiskLevel.DANGER
-                                       -> "몸이 굳어가고 있어요"
-                else                   -> "몸이 가볍게 풀렸어요"
+                                       -> "몸을 풀어볼까요?"
+                else                   -> "몸이 가벼워요"
             }
             setTextViewText(R.id.widget_stretch_status, statusMsg)
 
             val secondaryText = when {
-                timerState.isRunning   -> "1분 스트레칭 진행 중"
-                timerState.isCompleted -> "방금 스트레칭함"
+                timerState.isRunning   -> "천천히 호흡해요"
+                timerState.isCompleted -> "좋은 흐름이에요"
                 else -> {
                     val lastAt = stretchData?.lastStretchAtMillis
                     if (lastAt != null && lastAt > 0L) {
                         val minutesAgo = ((System.currentTimeMillis() - lastAt) / 60_000L).toInt()
                         val hoursAgo = minutesAgo / 60
                         when {
-                            hoursAgo >= 1  -> "마지막 스트레칭 ${hoursAgo}시간 전"
-                            minutesAgo > 0 -> "마지막 스트레칭 ${minutesAgo}분 전"
+                            hoursAgo >= 1  -> "마지막 ${hoursAgo}시간 전"
+                            minutesAgo > 0 -> "마지막 ${minutesAgo}분 전"
                             else           -> "방금 스트레칭함"
                         }
-                    } else "스트레칭을 아직 안 했어요"
+                    } else "아직 시작 전이에요"
                 }
             }
             setTextViewText(R.id.widget_stretch_secondary, secondaryText)

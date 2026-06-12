@@ -8,5 +8,9 @@ data class WaterUiState(
     val loading: Boolean = true,
     val errorMessage: String? = null,
     val todayStatus: WaterTodayStatus? = null,
+    val interventionMessage: String? = null,
+    val baseGoalMl: Int? = null,
+    val effectiveGoalMl: Int? = null,
+    val recommendedAmountMl: Int? = null,
     val history: List<DailyWaterSummary> = emptyList(),
 )

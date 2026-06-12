@@ -71,8 +71,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.example.habittracker.domain.model.DigitalTodayStatus
 import com.example.habittracker.domain.model.MealTodayStatus
+import com.example.habittracker.domain.model.StretchInterventionStatus
 import com.example.habittracker.domain.model.StretchTodayStatus
 import com.example.habittracker.domain.model.WaterTodayStatus
+import com.example.habittracker.domain.model.WaterInterventionStatus
 import com.example.habittracker.ui.avatar.AvatarUiState
 import com.example.habittracker.ui.theme.DigitalBackground
 import com.example.habittracker.ui.theme.DigitalPrimary
@@ -161,6 +163,7 @@ fun HomeScreen(
                         )
                         1 -> WaterPage(
                             waterStatus = dash?.waterStatus,
+                            waterInterventionStatus = uiState.waterInterventionStatus,
                             onNavigate = { navController.navigate("water") },
                         )
                         2 -> DigitalPage(
@@ -169,6 +172,7 @@ fun HomeScreen(
                         )
                         else -> StretchPage(
                             stretchStatus = dash?.stretchStatus,
+                            stretchInterventionStatus = uiState.stretchInterventionStatus,
                             onNavigate = { navController.navigate("stretch") },
                         )
                     }
@@ -503,6 +507,7 @@ private fun MealCheckRow(label: String, logged: Boolean) {
 @Composable
 private fun WaterPage(
     waterStatus: WaterTodayStatus?,
+    waterInterventionStatus: WaterInterventionStatus?,
     onNavigate: () -> Unit,
 ) {
     CategoryPageCard {
@@ -514,22 +519,40 @@ private fun WaterPage(
             bgColor = WaterBackground,
         )
         if (waterStatus != null) {
+            val displayGoalMl = waterInterventionStatus?.effectiveGoalMl
+                ?.takeIf { it > 0 }
+                ?: waterStatus.goalMl
+            val displayAchievementRate = if (displayGoalMl > 0) {
+                waterStatus.totalMl.toFloat() / displayGoalMl
+            } else {
+                0f
+            }
+            waterInterventionStatus?.effectiveGoalMl
+                ?.takeIf { it > 0 }
+                ?.let { effectiveGoalMl ->
+                    Text(
+                        text = "오늘 활동 기준 ${effectiveGoalMl}ml",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = WaterPrimary,
+                    )
+                    Spacer(modifier = Modifier.height(HabitSpacing.xs))
+                }
             Text(
-                text = "${waterStatus.totalMl}ml / ${waterStatus.goalMl}ml",
+                text = "${waterStatus.totalMl}ml / ${displayGoalMl}ml",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = WaterPrimary,
             )
             Spacer(modifier = Modifier.height(HabitSpacing.sm))
             LinearProgressIndicator(
-                progress = { waterStatus.achievementRate.coerceIn(0f, 1f) },
+                progress = { displayAchievementRate.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth(),
                 color = WaterPrimary,
                 trackColor = WaterBackground,
             )
             Spacer(modifier = Modifier.height(HabitSpacing.xs))
             Text(
-                text = "${(waterStatus.achievementRate * 100).toInt()}% 달성",
+                text = "${(displayAchievementRate * 100).toInt()}% 달성",
                 style = MaterialTheme.typography.bodySmall,
                 color = HabitTextSecondary,
             )
@@ -582,6 +605,7 @@ private fun DigitalPage(
 @Composable
 private fun StretchPage(
     stretchStatus: StretchTodayStatus?,
+    stretchInterventionStatus: StretchInterventionStatus?,
     onNavigate: () -> Unit,
 ) {
     CategoryPageCard {
@@ -593,22 +617,34 @@ private fun StretchPage(
             bgColor = StretchBackground,
         )
         if (stretchStatus != null) {
+            val displayGoalCount = stretchInterventionStatus?.personalizedGoalCount
+                ?.takeIf { it > 0 }
+                ?: 4
+            val displayProgress = (stretchStatus.totalCount / displayGoalCount.toFloat()).coerceIn(0f, 1f)
+            val isGoalAchieved = stretchStatus.totalCount >= displayGoalCount
+            val streak = stretchInterventionStatus?.let {
+                if (isGoalAchieved) stretchStatus.streak.coerceAtLeast(1) else stretchStatus.streak
+            } ?: stretchStatus.streak
             Text(
-                text = "오늘 ${stretchStatus.totalCount}회 완료",
+                text = "오늘 ${stretchStatus.totalCount}/${displayGoalCount}회 완료",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = StretchPrimary,
             )
             Spacer(modifier = Modifier.height(HabitSpacing.sm))
             LinearProgressIndicator(
-                progress = { stretchStatus.avatarHealthScore.coerceIn(0f, 1f) },
+                progress = { displayProgress },
                 modifier = Modifier.fillMaxWidth(),
                 color = StretchPrimary,
                 trackColor = StretchBackground,
             )
             Spacer(modifier = Modifier.height(HabitSpacing.xs))
             Text(
-                text = "연속 달성 ${stretchStatus.streak}일째",
+                text = when {
+                    streak > 0 -> "연속 달성 ${streak}일째"
+                    isGoalAchieved -> "오늘 목표 완료"
+                    else -> "오늘 목표 진행 중"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = HabitTextSecondary,
             )

@@ -72,6 +72,7 @@ fun WaterInputScreen(
     var inputError by remember { mutableStateOf<String?>(null) }
     var pendingAmountMl by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
+    val interventionSpeech = uiState.interventionMessage?.takeIf { it.isNotBlank() }
 
     val speech = when {
         status == null -> "물을 마시는 것도 좋은 습관이에요! 💧"
@@ -83,12 +84,16 @@ fun WaterInputScreen(
     CategoryScaffold(
         category = HabitCategoryStyle.WATER,
         title = "해빗프렌즈",
-        speech = speech,
+        speech = interventionSpeech ?: speech,
         avatarUiState = avatarUiState.forCategory(AvatarState.WATER_LACK),
         onSettingsClick = { navController.navigate("settings") },
         onReportsClick = { navController.navigate("reports") },
     ) {
-        WaterStatusCard(status = status)
+        WaterStatusCard(
+            status = status,
+            effectiveGoalMl = uiState.effectiveGoalMl,
+            recommendedAmountMl = uiState.recommendedAmountMl,
+        )
         WaterQuickAddCard(
             customAmountText = customAmountText,
             inputError = inputError,
@@ -138,7 +143,11 @@ fun WaterInputScreen(
 }
 
 @Composable
-private fun WaterStatusCard(status: WaterTodayStatus?) {
+private fun WaterStatusCard(
+    status: WaterTodayStatus?,
+    effectiveGoalMl: Int?,
+    recommendedAmountMl: Int?,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(HabitRadius.card),
@@ -174,11 +183,31 @@ private fun WaterStatusCard(status: WaterTodayStatus?) {
                             style = MaterialTheme.typography.bodySmall,
                             color = HabitTextSecondary,
                         )
+                        if (effectiveGoalMl != null && effectiveGoalMl > 0) {
+                            Text(
+                                text = "오늘 활동 기준 목표 ${effectiveGoalMl}ml",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = WaterPrimary,
+                            )
+                        }
+                        if (recommendedAmountMl != null && recommendedAmountMl > 0) {
+                            Text(
+                                text = "지금 기준 권장량 ${recommendedAmountMl}ml",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = HabitTextSecondary,
+                            )
+                        }
                     }
                 }
+                val displayGoalMl = effectiveGoalMl?.takeIf { it > 0 } ?: status?.goalMl ?: 2000
+                val displayAchievementRate = if (displayGoalMl > 0 && status != null) {
+                    status.totalMl.toFloat() / displayGoalMl
+                } else {
+                    0f
+                }
                 val levelLabel = when {
-                    (status?.achievementRate ?: 0f) >= 1f -> "충분"
-                    (status?.achievementRate ?: 0f) >= 0.5f -> "보통"
+                    displayAchievementRate >= 1f -> "충분"
+                    displayAchievementRate >= 0.5f -> "보통"
                     else -> "낮음"
                 }
                 Surface(
@@ -199,6 +228,12 @@ private fun WaterStatusCard(status: WaterTodayStatus?) {
             Spacer(modifier = Modifier.height(HabitSpacing.base))
 
             if (status != null) {
+                val displayGoalMl = effectiveGoalMl?.takeIf { it > 0 } ?: status.goalMl
+                val displayAchievementRate = if (displayGoalMl > 0) {
+                    status.totalMl.toFloat() / displayGoalMl
+                } else {
+                    0f
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Bottom,
@@ -211,12 +246,12 @@ private fun WaterStatusCard(status: WaterTodayStatus?) {
                         color = WaterPrimary,
                     )
                     Text(
-                        text = "/ ${status.goalMl}ml",
+                        text = "/ ${displayGoalMl}ml",
                         style = MaterialTheme.typography.bodyLarge,
                         color = HabitTextSecondary,
                     )
                     Text(
-                        text = "${(status.achievementRate * 100).toInt()}%",
+                        text = "${(displayAchievementRate * 100).toInt()}%",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = WaterPrimary,
@@ -224,7 +259,7 @@ private fun WaterStatusCard(status: WaterTodayStatus?) {
                 }
                 Spacer(modifier = Modifier.height(HabitSpacing.sm))
                 LinearProgressIndicator(
-                    progress = { status.achievementRate.coerceIn(0f, 1f) },
+                    progress = { displayAchievementRate.coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth(),
                     color = WaterPrimary,
                     trackColor = WaterBackground,

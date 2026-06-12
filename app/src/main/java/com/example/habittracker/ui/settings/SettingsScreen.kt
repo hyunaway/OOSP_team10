@@ -502,14 +502,6 @@ fun SettingsScreen(
                     ) {
                         Text("2. 개인화 분석 즉시 실행", color = Color.White, fontWeight = FontWeight.Bold)
                     }
-                    Spacer(modifier = Modifier.height(HabitSpacing.xs))
-                    OutlinedButton(
-                        onClick = { viewModel.clearAllData() },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(HabitRadius.button),
-                    ) {
-                        Text("데이터 전체 초기화", color = MaterialTheme.colorScheme.error)
-                    }
                 }
             }
 

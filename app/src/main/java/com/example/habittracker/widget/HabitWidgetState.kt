@@ -14,6 +14,7 @@ data class MealWidgetData(
 data class WaterWidgetData(
     val currentMl: Int,
     val goalMl: Int,
+    val recommendedMl: Int,
 )
 
 data class DigitalWidgetData(

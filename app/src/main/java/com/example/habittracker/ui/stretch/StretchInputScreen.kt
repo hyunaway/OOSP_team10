@@ -207,6 +207,7 @@ private fun StretchProgressWidget(
             Text(
                 text = when {
                     !hasTodayActiveStarted -> "오늘 활동이 시작되면 목표가 계산돼요."
+                    todayCount == 0 && safeGoal < 4 -> "남은 활동 시간 기준 목표예요. 아직 첫 스트레칭 전이에요."
                     safeGoal < 4 -> "오늘 남은 활동 시간에 맞춰 목표를 조정했어요."
                     else -> "활동 시작 기준으로 조정된 목표입니다."
                 },
@@ -229,6 +230,9 @@ private fun StretchStatusCard(uiState: StretchUiState) {
     val status = uiState.todayStatus
     val streak = uiState.streak
     val todayCount = uiState.todayCount
+    val safeGoal = uiState.personalizedGoalCount.coerceAtLeast(1)
+    val healthScore = (todayCount / safeGoal.toFloat()).coerceIn(0f, 1f)
+    val isGoalAchieved = todayCount >= safeGoal
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -286,7 +290,7 @@ private fun StretchStatusCard(uiState: StretchUiState) {
                             color = HabitTextSecondary,
                         )
                         Text(
-                            text = "현재 완료 $todayCount / ${uiState.personalizedGoalCount.coerceAtLeast(1)}회",
+                            text = "현재 완료 $todayCount / ${safeGoal}회",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = StretchPrimary,
@@ -297,7 +301,11 @@ private fun StretchStatusCard(uiState: StretchUiState) {
                         color = StretchBackground,
                     ) {
                         Text(
-                            text = "연속 ${streak}일째",
+                            text = when {
+                                streak > 0 -> "연속 ${streak}일째"
+                                isGoalAchieved -> "오늘 목표 완료"
+                                else -> "오늘 목표 진행 중"
+                            },
                             modifier = Modifier.padding(
                                 horizontal = HabitSpacing.sm,
                                 vertical = HabitSpacing.xxs,
@@ -309,7 +317,7 @@ private fun StretchStatusCard(uiState: StretchUiState) {
                 }
                 Spacer(modifier = Modifier.height(HabitSpacing.sm))
                 val animatedHealthScore by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = status.avatarHealthScore.coerceIn(0f, 1f),
+                    targetValue = healthScore,
                     animationSpec = androidx.compose.animation.core.tween(durationMillis = 500),
                     label = "stretchHealthScoreAnimation"
                 )
@@ -321,7 +329,7 @@ private fun StretchStatusCard(uiState: StretchUiState) {
                 )
                 Spacer(modifier = Modifier.height(HabitSpacing.xs))
                 Text(
-                    text = "건강 점수 ${(status.avatarHealthScore * 100).toInt()}%",
+                    text = "건강 점수 ${(healthScore * 100).toInt()}%",
                     style = MaterialTheme.typography.bodySmall,
                     color = HabitTextSecondary,
                 )

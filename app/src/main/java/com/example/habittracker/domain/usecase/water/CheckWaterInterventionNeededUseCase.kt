@@ -24,8 +24,11 @@ class CheckWaterInterventionNeededUseCase @Inject constructor(
         val status = waterRepository.getTodayStatus().first()
         val wakeMinutes = userPreferenceManager.getWakeTimeAsMinutes().first()
         val bedMinutes = userPreferenceManager.getBedTimeAsMinutes().first()
+        val resolvedGoalMl = personalizationResolver.resolveWaterGoalMl()
         val activeStartedAt = userPreferenceManager.todayActiveStartedAtFlow.first()
             ?: return WaterInterventionStatus(
+                baseGoalMl = resolvedGoalMl,
+                effectiveGoalMl = resolvedGoalMl,
                 recommendedAmountMl = 0,
                 currentAmountMl = status.totalMl,
                 shortageMl = 0,
@@ -35,9 +38,6 @@ class CheckWaterInterventionNeededUseCase @Inject constructor(
             )
         val activeStartMinutes = minutesOfDay(activeStartedAt)
         val interventionStartMinutes = maxOf(wakeMinutes, activeStartMinutes)
-
-        // 개인화된 물 목표량 조회
-        val resolvedGoalMl = personalizationResolver.resolveWaterGoalMl()
 
         // 오늘 요일 기준 주말 여부 판별
         // 개인화된 물 피크 윈도우 조회
