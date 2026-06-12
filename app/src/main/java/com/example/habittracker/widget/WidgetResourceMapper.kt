@@ -62,7 +62,7 @@ object WidgetResourceMapper {
         )
 
         val isMealRisk = mealStatus.isActionable
-        val isWaterRisk = waterStatus.shortageLevel != WaterShortageLevel.NONE
+        val isWaterRisk = waterStatus.isNeedWater
         val isDigitalRisk = digitalStatus.totalUsageMinutes > digitalThresholdMinutes
         val isStretchRisk = stretchInterventionStatus.isNeedStretch
 
@@ -89,6 +89,7 @@ object WidgetResourceMapper {
             waterGoalMl = waterGoalMl,
             waterRecommendedMl = waterRecommendedMl,
             waterShortageLevel = waterStatus.shortageLevel,
+            waterMessage = waterStatus.message,
             isDigitalRisk = isDigitalRisk,
             digitalUsageMinutes = digitalStatus.totalUsageMinutes,
             digitalThresholdMinutes = digitalThresholdMinutes,
@@ -185,6 +186,7 @@ object WidgetResourceMapper {
         waterGoalMl: Int,
         waterRecommendedMl: Int,
         waterShortageLevel: WaterShortageLevel,
+        waterMessage: String,
         isDigitalRisk: Boolean,
         digitalUsageMinutes: Int,
         digitalThresholdMinutes: Int,
@@ -208,14 +210,29 @@ object WidgetResourceMapper {
         HabitCardState(
             category = HabitCategory.WATER,
             iconResId = R.drawable.widget_dot_water,
-            statusLabel = if (isWaterRisk) "물이 조금 부족해요" else "수분 섭취 좋아요",
-            description = "${waterTotalMl}/${waterGoalMl}ml · 권장 ${waterRecommendedMl}ml",
+            statusLabel = waterStatusLabel(
+                isWaterRisk = isWaterRisk,
+                waterTotalMl = waterTotalMl,
+                waterGoalMl = waterGoalMl,
+                waterMessage = waterMessage,
+            ),
+            description = waterDescription(
+                isWaterRisk = isWaterRisk,
+                waterMessage = waterMessage,
+                waterTotalMl = waterTotalMl,
+                waterGoalMl = waterGoalMl,
+                waterRecommendedMl = waterRecommendedMl,
+            ),
             actionLabel = "💧 +1잔 (250ml)",
-            riskLevel = when (waterShortageLevel) {
-                WaterShortageLevel.SEVERE -> RiskLevel.DANGER
-                WaterShortageLevel.MEDIUM,
-                WaterShortageLevel.LIGHT -> RiskLevel.WARNING
-                WaterShortageLevel.NONE -> RiskLevel.NORMAL
+            riskLevel = if (isWaterRisk) {
+                when (waterShortageLevel) {
+                    WaterShortageLevel.SEVERE -> RiskLevel.DANGER
+                    WaterShortageLevel.MEDIUM,
+                    WaterShortageLevel.LIGHT -> RiskLevel.WARNING
+                    WaterShortageLevel.NONE -> RiskLevel.NORMAL
+                }
+            } else {
+                RiskLevel.NORMAL
             },
             isActionable = isWaterRisk,
             waterData = WaterWidgetData(
@@ -256,4 +273,31 @@ object WidgetResourceMapper {
             stretchData = stretchWidgetData,
         ),
     )
+
+    private fun waterStatusLabel(
+        isWaterRisk: Boolean,
+        waterTotalMl: Int,
+        waterGoalMl: Int,
+        waterMessage: String,
+    ): String = when {
+        waterTotalMl >= waterGoalMl -> "오늘 물 목표 달성"
+        waterMessage.isRecentWaterHoldMessage() -> "방금 물을 마셨어요"
+        isWaterRisk -> "물이 조금 부족해요"
+        else -> "수분 섭취 좋아요"
+    }
+
+    private fun waterDescription(
+        isWaterRisk: Boolean,
+        waterMessage: String,
+        waterTotalMl: Int,
+        waterGoalMl: Int,
+        waterRecommendedMl: Int,
+    ): String = when {
+        waterMessage.isRecentWaterHoldMessage() -> "잠시 후 다시 확인해요"
+        isWaterRisk -> "한 잔만 더 마셔볼까요?"
+        else -> "${waterTotalMl}/${waterGoalMl}ml · 권장 ${waterRecommendedMl}ml"
+    }
+
+    private fun String.isRecentWaterHoldMessage(): Boolean =
+        contains("방금 물을 마셨어요")
 }
