@@ -1,4 +1,3 @@
-// 경로: com/example/habittracker/worker/MealReminderWorker.kt
 package com.example.habittracker.worker
 
 import android.content.Context
@@ -7,26 +6,21 @@ import androidx.work.WorkerParameters
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.data.local.room.dao.MealDao
 import com.example.habittracker.data.model.MealType
-import com.example.habittracker.domain.analysis.DefaultValues
 import com.example.habittracker.domain.analysis.PersonalizationResolver
+import com.example.habittracker.domain.usecase.meal.ExpectedMealWindow
+import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
+import com.example.habittracker.domain.usecase.meal.MealInterventionIntensity
 import com.example.habittracker.util.MessageToneSelector
 import com.example.habittracker.util.NotificationHelper
 import com.example.habittracker.widget.WidgetUpdateHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
-/**
- * 식사 알림 Worker.
- *
- * 개인화 적용 범위:
- *  - 1차 알림 기준점 → PersonalizationResolver.resolve*PeakMinutes() (peak 또는 fallback)
- *  - 2차(재알림) · 결식경고 · 야식칭찬 → 1차 기준점 + 고정 오프셋 / DefaultValues 고정 시각
- *  - 발송 메커니즘(NotificationHelper) · 중복 방지(lastMealReminderId) → 수정 없음
- *
- * ready = false 이면 DefaultValues 상수를 사용 → 기존 동작 100% 동일.
- */
 @HiltWorker
 class MealReminderWorker @AssistedInject constructor(
     @Assisted context: Context,
@@ -36,128 +30,141 @@ class MealReminderWorker @AssistedInject constructor(
     private val notificationHelper: NotificationHelper,
     private val messageToneSelector: MessageToneSelector,
     private val mealDao: MealDao,
+    private val getCurrentMealInterventionStatusUseCase: GetCurrentMealInterventionStatusUseCase,
 ) : BaseReminderWorker(context, params, userPreferenceManager, personalizationResolver) {
 
     override suspend fun doRemind(): Result {
         return try {
-            val nowMinutes = run {
-                val cal = Calendar.getInstance()
-                cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+            if (userPreferenceManager.todayActiveStartedAtFlow.first() == null) {
+                return Result.success()
             }
 
-            val todayStr   = getTodayDateString()
-            val todayStart = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0);      set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
-            val logs = mealDao.getLogsBetween(todayStart, Long.MAX_VALUE).first()
-            val breakfastLogged = logs.any { it.type == MealType.BREAKFAST }
-            val lunchLogged     = logs.any { it.type == MealType.LUNCH }
-            val dinnerLogged    = logs.any { it.type == MealType.DINNER }
-            val lastReminderId  = userPreferenceManager.lastMealReminderIdFlow.first()
+            val nowMinutes = currentMinutesOfDay()
+            val today = todayDateString()
+            val lastReminderId = userPreferenceManager.lastMealReminderIdFlow.first()
 
-            // ── 개인화 1차 기준점 해결 (4단계 fallback 포함) ─────────────────
-            val bfPeak  = personalizationResolver.resolveBreakfastPeakMinutes()
-            val luPeak  = personalizationResolver.resolveLunchPeakMinutes()
-            val diPeak  = personalizationResolver.resolveDinnerPeakMinutes()
-            val lnPeak  = personalizationResolver.resolveLateNightPeakMinutes()
-            val win     = DefaultValues.MEAL_NOTIFICATION_WINDOW_MINUTES
-
-            // ── 2차 알림 = 1차 기준점 + 고정 오프셋 ─────────────────────────
-            val bfPeak2 = bfPeak + DefaultValues.BREAKFAST_REMINDER2_OFFSET_MINUTES
-            val luPeak2 = luPeak + DefaultValues.LUNCH_REMINDER2_OFFSET_MINUTES
-            val diPeak2 = diPeak + DefaultValues.DINNER_REMINDER2_OFFSET_MINUTES
-            
-            // 야식 알림 조건
-            val isMealReady = userPreferenceManager.mealPersonalizationReadyFlow.first()
-            val lnWarnStart = lnPeak - 15
-
-            suspend fun checkAndSend(reminderId: String, mealType: String, title: String) {
-                if (lastReminderId == reminderId) return
-                val message = messageToneSelector.selectByPreference(
-                    "meal", getPreferredTone(), getFatigueScore(),
+            val lateNightReminderId = "$today:$ID_LATE_NIGHT_WARN"
+            if (
+                !lastReminderId.isRecentLateNightReminder(today) &&
+                shouldSendLateNightWarning(nowMinutes, today)
+            ) {
+                notificationHelper.sendMealReminder(
+                    message = "야식이 생각나는 시간이에요. 물 한 잔이나 가벼운 스트레칭으로 흐름을 바꿔볼까요?",
+                    mealType = MealType.LATE_NIGHT.name,
                 )
-                notificationHelper.sendMealReminder("$title: $message", mealType)
-                userPreferenceManager.updateLastMealReminderId(reminderId)
+                userPreferenceManager.updateLastMealReminderId(lateNightReminderId)
+                return Result.success()
             }
 
-            suspend fun triggerMealLack(skipId: String, msg: String) {
-                if (lastReminderId == skipId) return
-                notificationHelper.sendMealReminder(msg, "LACK")
-                userPreferenceManager.updateLastMealReminderId(skipId)
+            val status = getCurrentMealInterventionStatusUseCase()
+            val window = status.currentWindow ?: return Result.success()
+            val mealType = status.actionableMealType ?: return Result.success()
+
+            if (!status.isActionable || status.intensity == MealInterventionIntensity.NONE) {
+                return Result.success()
             }
+            if (mealType == MealType.LATE_NIGHT) return Result.success()
 
-            // ── 아침 ─────────────────────────────────────────────────────────
-            when {
-                // ── 야식 방지 알림 (개인화 완료 시 피크 15분 전 발송) ───────────────
-                isMealReady && nowMinutes in lnWarnStart..lnPeak -> {
-                    val reminderId = "$todayStr:LATE_NIGHT_WARN"
-                    if (lastReminderId != reminderId) {
-                        notificationHelper.sendMealReminder(
-                            "야식 생각이 나는 시간이에요! 따뜻한 물 한 잔으로 속을 달래보는 건 어떨까요?",
-                            "LATE_NIGHT"
-                        )
-                        userPreferenceManager.updateLastMealReminderId(reminderId)
-                    }
-                }
+            val peak = resolvePeakFor(mealType).clampToWindow(window)
+            val stage = reminderStage(
+                nowMinutes = nowMinutes,
+                peakMinutes = peak,
+                window = window,
+            ) ?: return Result.success()
 
-                nowMinutes in bfPeak..(bfPeak + win) && !breakfastLogged ->
-                    checkAndSend("$todayStr:BREAKFAST_1", "BREAKFAST", "[아침 식사 알림] 아침 식사 시간입니다")
+            val reminderId = "$today:${mealType.name}_$stage"
+            if (lastReminderId == reminderId) return Result.success()
 
-                nowMinutes in bfPeak2..(bfPeak2 + win) && !breakfastLogged ->
-                    checkAndSend("$todayStr:BREAKFAST_2", "BREAKFAST", "[아침 식사 재알림] 아침 시간 종료 1시간 전입니다")
-
-                // ── 점심 ─────────────────────────────────────────────────────
-                nowMinutes in luPeak..(luPeak + win) && !lunchLogged ->
-                    checkAndSend("$todayStr:LUNCH_1", "LUNCH", "[점심 식사 알림] 점심 식사 시간입니다")
-
-                nowMinutes in luPeak2..(luPeak2 + win) && !lunchLogged ->
-                    checkAndSend("$todayStr:LUNCH_2", "LUNCH", "[점심 식사 재알림] 점심 시간 종료 1시간 전입니다")
-
-                // ── 저녁 ─────────────────────────────────────────────────────
-                nowMinutes in diPeak..(diPeak + win) && !dinnerLogged ->
-                    checkAndSend("$todayStr:DINNER_1", "DINNER", "[저녁 식사 알림] 저녁 식사 시간입니다")
-
-                nowMinutes in diPeak2..(diPeak2 + win) && !dinnerLogged ->
-                    checkAndSend("$todayStr:DINNER_2", "DINNER", "[저녁 식사 재알림] 저녁 시간 종료 1시간 전입니다")
-
-                // ── 고정 시각 알림 (DefaultValues 상수, 개인화 미적용) ─────────
-                nowMinutes in DefaultValues.LATE_NIGHT_PRAISE_MINUTES..(DefaultValues.LATE_NIGHT_PRAISE_MINUTES + win) -> {
-                    val reminderId = "$todayStr:LATE_NIGHT_SUCCESS"
-                    if (lastReminderId != reminderId) {
-                        val yesterdayStr  = java.time.LocalDate.now().minusDays(1).toString()
-                        val lateNightCount = mealDao.getLogsByMealDate(yesterdayStr)
-                            .count { it.type == MealType.LATE_NIGHT || it.isLateNight }
-                        if (lateNightCount == 0) {
-                            notificationHelper.sendMealReminder("어젯밤 야식을 참으셨군요! 대단해요 💪", "LATE_NIGHT")
-                        }
-                        userPreferenceManager.updateLastMealReminderId(reminderId)
-                    }
-                }
-
-                nowMinutes in DefaultValues.LUNCH_WARN_MINUTES..(DefaultValues.LUNCH_WARN_MINUTES + win) && !lunchLogged ->
-                    checkAndSend("$todayStr:LUNCH_WARN", "LUNCH", "[점심 결식 경고] 아직 점심 기록이 없습니다. 오후 4시가 지났습니다")
-
-                // ── 결식 감지 (고정 시각, 개인화 미적용) ──────────────────────
-                nowMinutes in DefaultValues.SKIP_BREAKFAST_MINUTES..(DefaultValues.SKIP_BREAKFAST_MINUTES + win) && !breakfastLogged ->
-                    triggerMealLack("$todayStr:SKIP_BREAKFAST", "아침 식사를 거르셨습니다. 아바타의 체력이 저하됩니다 😢")
-
-                nowMinutes in DefaultValues.SKIP_LUNCH_MINUTES..(DefaultValues.SKIP_LUNCH_MINUTES + win) && !lunchLogged ->
-                    triggerMealLack("$todayStr:SKIP_LUNCH", "점심 식사를 거르셨습니다. 아바타의 체력이 저하됩니다 😢")
-
-                nowMinutes in DefaultValues.SKIP_DINNER_MINUTES..(DefaultValues.SKIP_DINNER_MINUTES + win) && !dinnerLogged ->
-                    triggerMealLack("$todayStr:SKIP_DINNER", "저녁 식사를 거르셨습니다. 아바타의 체력이 저하됩니다 😢")
-            }
+            val message = messageToneSelector.selectByPreference(
+                "meal",
+                getPreferredTone(),
+                getFatigueScore(),
+            )
+            notificationHelper.sendMealReminder(
+                message = "${mealLabel(mealType)} 식사 ${stage}차 알림: $message",
+                mealType = mealType.name,
+            )
+            userPreferenceManager.updateLastMealReminderId(reminderId)
 
             Result.success()
         } catch (e: Exception) {
             Result.retry()
         } finally {
-            try { WidgetUpdateHelper.updateAllWidgets(applicationContext) } catch (_: Exception) {}
+            try {
+                WidgetUpdateHelper.updateAllWidgets(applicationContext)
+            } catch (_: Exception) {
+            }
         }
     }
 
-    private fun getTodayDateString(): String =
-        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-            .format(java.util.Date())
+    private suspend fun shouldSendLateNightWarning(
+        nowMinutes: Int,
+        today: String,
+    ): Boolean {
+        val lateNightPeak = personalizationResolver.resolveLateNightPeakMinutes()
+        val start = (lateNightPeak - LATE_NIGHT_WARNING_LEAD_MINUTES).coerceAtLeast(0)
+        if (nowMinutes !in start..lateNightPeak) return false
+
+        val todayLogs = mealDao.getLogsByMealDate(today)
+        return todayLogs.none { it.type == MealType.LATE_NIGHT || it.isLateNight }
+    }
+
+    private suspend fun resolvePeakFor(mealType: MealType): Int =
+        when (mealType) {
+            MealType.BREAKFAST -> personalizationResolver.resolveBreakfastPeakMinutes()
+            MealType.LUNCH -> personalizationResolver.resolveLunchPeakMinutes()
+            MealType.DINNER -> personalizationResolver.resolveDinnerPeakMinutes()
+            MealType.LATE_NIGHT -> personalizationResolver.resolveLateNightPeakMinutes()
+        }
+
+    private fun Int.clampToWindow(window: ExpectedMealWindow): Int {
+        val safeEnd = (window.endMinutes - 1).coerceAtLeast(window.startMinutes)
+        return coerceIn(window.startMinutes, safeEnd)
+    }
+
+    private fun reminderStage(
+        nowMinutes: Int,
+        peakMinutes: Int,
+        window: ExpectedMealWindow,
+    ): Int? {
+        if (!window.contains(nowMinutes)) return null
+
+        val firstEnd = (peakMinutes + REMINDER_WINDOW_MINUTES)
+            .coerceAtMost(window.endMinutes - 1)
+        if (nowMinutes in peakMinutes..firstEnd) return 1
+
+        val secondStart = maxOf(
+            peakMinutes + REMINDER_WINDOW_MINUTES + 1,
+            window.endMinutes - REMINDER_WINDOW_MINUTES,
+            window.startMinutes,
+        ).coerceAtMost(window.endMinutes - 1)
+        return if (nowMinutes in secondStart until window.endMinutes) 2 else null
+    }
+
+    private fun currentMinutesOfDay(): Int {
+        val calendar = Calendar.getInstance()
+        return calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+    }
+
+    private fun todayDateString(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+    private fun mealLabel(mealType: MealType): String =
+        when (mealType) {
+            MealType.BREAKFAST -> "아침"
+            MealType.LUNCH -> "점심"
+            MealType.DINNER -> "저녁"
+            MealType.LATE_NIGHT -> "야식"
+        }
+
+    private fun String.isRecentLateNightReminder(today: String): Boolean =
+        this == "$today:$ID_LATE_NIGHT_WARN" ||
+            this == "$today:$ID_DELIVERY_LATE_NIGHT_WARN"
+
+    companion object {
+        private const val REMINDER_WINDOW_MINUTES = 30
+        private const val LATE_NIGHT_WARNING_LEAD_MINUTES = 30
+        private const val ID_LATE_NIGHT_WARN = "LATE_NIGHT_WARN"
+        private const val ID_DELIVERY_LATE_NIGHT_WARN = "DELIVERY_LATE_NIGHT_WARN"
+    }
 }
