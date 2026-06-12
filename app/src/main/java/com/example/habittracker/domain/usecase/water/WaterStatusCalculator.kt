@@ -33,18 +33,25 @@ class WaterStatusCalculator @Inject constructor() {
         val resolvedTolerance = if (isInsidePeak) toleranceMl / 2 else toleranceMl
         val resolvedMinInterval = if (isInsidePeak) minimumIntervalMinutes / 2 else minimumIntervalMinutes
 
+        val baseGoalMl = goalMl
         val activePosition = activePosition(wakeMinutes, bedMinutes, currentMinutes)
+        val effectiveGoalMl = activePosition?.let {
+            interventionGoalMl(
+                baseGoalMl = baseGoalMl,
+                durationMinutes = it.durationMinutes,
+            )
+        } ?: baseGoalMl
         val recommendedAmountMl = activePosition?.let {
             recommendedAmountMl(
                 elapsedMinutes = it.elapsedMinutes,
                 durationMinutes = it.durationMinutes,
-                goalMl = goalMl,
+                goalMl = effectiveGoalMl,
             )
         } ?: 0
         val shortageMl = (recommendedAmountMl - currentAmountMl).coerceAtLeast(0)
         val shortageLevel = shortageLevel(shortageMl)
 
-        val hasReachedGoal = currentAmountMl >= goalMl
+        val hasReachedInterventionGoal = currentAmountMl >= effectiveGoalMl
         val isEnoughAfterLastDrink = lastDrankAt?.let {
             nowMillis - it >= resolvedMinInterval * MILLIS_PER_MINUTE
         } ?: true
@@ -52,7 +59,7 @@ class WaterStatusCalculator @Inject constructor() {
         val isNeedWater = activePosition != null &&
             activePosition.elapsedMinutes > 0 &&
             activePosition.elapsedMinutes < activePosition.durationMinutes &&
-            !hasReachedGoal &&
+            !hasReachedInterventionGoal &&
             shortageMl >= resolvedTolerance &&
             isEnoughAfterLastDrink
 
@@ -144,6 +151,20 @@ class WaterStatusCalculator @Inject constructor() {
         return weightedAmount.roundToInt().coerceIn(0, goalMl)
     }
 
+    private fun interventionGoalMl(
+        baseGoalMl: Int,
+        durationMinutes: Int,
+    ): Int {
+        if (durationMinutes <= 0) return baseGoalMl
+
+        val activityRatio = durationMinutes / STANDARD_ACTIVE_DURATION_MINUTES.toFloat()
+        val adjustedRatio = activityRatio.coerceIn(
+            MIN_ACTIVITY_GOAL_RATIO,
+            MAX_ACTIVITY_GOAL_RATIO,
+        )
+        return (baseGoalMl * adjustedRatio).roundToInt()
+    }
+
     private fun shortageLevel(shortageMl: Int): WaterShortageLevel =
         when {
             shortageMl >= 700 -> WaterShortageLevel.SEVERE
@@ -183,6 +204,9 @@ class WaterStatusCalculator @Inject constructor() {
         private const val MORNING_WEIGHT = 0.25f
         private const val MIDDLE_WEIGHT = 0.60f
         private const val EVENING_WEIGHT = 0.15f
+        private const val STANDARD_ACTIVE_DURATION_MINUTES = 15 * 60
+        private const val MIN_ACTIVITY_GOAL_RATIO = 0.5f
+        private const val MAX_ACTIVITY_GOAL_RATIO = 1.0f
         private const val MINUTES_PER_DAY = 24 * 60
         private const val MILLIS_PER_MINUTE = 60_000L
     }

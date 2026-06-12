@@ -16,7 +16,7 @@ class WaterStatusCalculatorTest {
     fun calculate_returnsOneEighthOfGoalAfterFirstMorningHour() {
         val result = calculator.calculate(
             wakeMinutes = 9 * 60,
-            bedMinutes = 23 * 60,
+            bedMinutes = END_OF_DAY_MINUTES,
             goalMl = 2000,
             currentAmountMl = 0,
             lastDrankAt = null,
@@ -31,7 +31,7 @@ class WaterStatusCalculatorTest {
     fun calculate_returnsQuarterOfGoalAfterTwoMorningHours() {
         val result = calculator.calculate(
             wakeMinutes = 9 * 60,
-            bedMinutes = 23 * 60,
+            bedMinutes = END_OF_DAY_MINUTES,
             goalMl = 2000,
             currentAmountMl = 0,
             lastDrankAt = null,
@@ -46,11 +46,11 @@ class WaterStatusCalculatorTest {
     fun calculate_increasesGraduallyDuringMiddleSegment() {
         val result = calculator.calculate(
             wakeMinutes = 9 * 60,
-            bedMinutes = 23 * 60,
+            bedMinutes = END_OF_DAY_MINUTES,
             goalMl = 2000,
             currentAmountMl = 700,
             lastDrankAt = null,
-            nowMillis = todayAt(hour = 16, minute = 0),
+            nowMillis = todayAt(hour = 16, minute = 30),
         )
 
         assertEquals(1100, result.recommendedAmountMl)
@@ -62,11 +62,11 @@ class WaterStatusCalculatorTest {
     fun calculate_increasesTowardGoalDuringEveningSegment() {
         val result = calculator.calculate(
             wakeMinutes = 9 * 60,
-            bedMinutes = 23 * 60,
+            bedMinutes = END_OF_DAY_MINUTES,
             goalMl = 2000,
             currentAmountMl = 1200,
             lastDrankAt = null,
-            nowMillis = todayAt(hour = 22, minute = 0),
+            nowMillis = todayAt(hour = 23, minute = 0),
         )
 
         assertEquals(1850, result.recommendedAmountMl)
@@ -149,7 +149,23 @@ class WaterStatusCalculatorTest {
             nowMillis = todayAt(hour = 10, minute = 15),
         )
 
-        assertEquals(500, result.recommendedAmountMl)
+        assertEquals(250, result.recommendedAmountMl)
+    }
+
+    @Test
+    fun calculate_usesAdjustedInterventionGoal_whenActiveTimeIsShort() {
+        val result = calculator.calculate(
+            wakeMinutes = 9 * 60,
+            bedMinutes = 14 * 60,
+            goalMl = 2000,
+            currentAmountMl = 1000,
+            lastDrankAt = null,
+            nowMillis = todayAt(hour = 13, minute = 30),
+        )
+
+        assertFalse(result.isNeedWater)
+        assertEquals(900, result.recommendedAmountMl)
+        assertEquals(0, result.shortageMl)
     }
 
     private fun todayAt(hour: Int, minute: Int): Long =
@@ -159,4 +175,8 @@ class WaterStatusCalculatorTest {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
+
+    companion object {
+        private const val END_OF_DAY_MINUTES = 24 * 60
+    }
 }
