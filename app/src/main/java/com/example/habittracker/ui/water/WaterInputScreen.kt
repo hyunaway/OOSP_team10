@@ -72,6 +72,7 @@ fun WaterInputScreen(
     var inputError by remember { mutableStateOf<String?>(null) }
     var pendingAmountMl by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
+    val interventionSpeech = uiState.interventionMessage?.takeIf { it.isNotBlank() }
 
     val speech = when {
         status == null -> "물을 마시는 것도 좋은 습관이에요! 💧"
@@ -83,7 +84,7 @@ fun WaterInputScreen(
     CategoryScaffold(
         category = HabitCategoryStyle.WATER,
         title = "해빗프렌즈",
-        speech = speech,
+        speech = interventionSpeech ?: speech,
         avatarUiState = avatarUiState.forCategory(AvatarState.WATER_LACK),
         onSettingsClick = { navController.navigate("settings") },
         onReportsClick = { navController.navigate("reports") },

@@ -1,4 +1,3 @@
-// 경로: com/example/habittracker/worker/DeliveryAppDetectionWorker.kt
 package com.example.habittracker.worker
 
 import android.content.Context
@@ -6,12 +5,18 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.habittracker.data.local.UserPreferenceManager
+import com.example.habittracker.data.local.room.dao.MealDao
+import com.example.habittracker.data.model.MealType
+import com.example.habittracker.data.usage.UsageEventWrapper
 import com.example.habittracker.data.usage.UsageStatsHelper
 import com.example.habittracker.util.NotificationHelper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @HiltWorker
 class DeliveryAppDetectionWorker @AssistedInject constructor(
@@ -20,18 +25,19 @@ class DeliveryAppDetectionWorker @AssistedInject constructor(
     private val userPreferenceManager: UserPreferenceManager,
     private val usageStatsHelper: UsageStatsHelper,
     private val notificationHelper: NotificationHelper,
+    private val mealDao: MealDao,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         if (!usageStatsHelper.hasUsageAccess()) return Result.success()
 
         return try {
-            val calendar = Calendar.getInstance()
-            val hour = calendar.get(Calendar.HOUR_OF_DAY)
+            if (isInSleepTime()) return Result.success()
+            if (!isLateNightRiskHour()) return Result.success()
 
-            // 야식 위험 시간대: 21:00 ~ 01:00 (21:00 ~ 23:59 또는 00:00 ~ 00:59)
-            val isLateNightRiskHour = hour >= 21 || hour < 1
-            if (!isLateNightRiskHour) return Result.success()
+            val today = todayDateString()
+            if (hasLateNightLog(today)) return Result.success()
+            if (hasRecentLateNightReminder(today)) return Result.success()
 
             val deliveryApps = userPreferenceManager.registeredDeliveryPackagesFlow.first()
             if (deliveryApps.isEmpty()) return Result.success()
@@ -40,17 +46,16 @@ class DeliveryAppDetectionWorker @AssistedInject constructor(
                 packageList = deliveryApps,
                 intervalMs = POLL_INTERVAL_MS,
             )
-
-            // MOVE_TO_FOREGROUND 이벤트 감지
             val isAppLaunched = events.any {
-                it.eventType == 1 // UsageEvents.Event.MOVE_TO_FOREGROUND = 1
+                it.eventType == UsageEventWrapper.FOREGROUND
             }
 
             if (isAppLaunched) {
                 notificationHelper.sendMealReminder(
-                    message = "야식의 유혹이 찾아왔나요? 시원한 물 한 잔을 마시거나 스트레칭으로 몸을 가볍게 해보는 건 어떨까요? 💪",
-                    mealType = "LATE_NIGHT"
+                    message = "늦은 시간 배달앱을 열었어요. 야식 대신 물 한 잔이나 가벼운 스트레칭으로 넘겨볼까요?",
+                    mealType = MealType.LATE_NIGHT.name,
                 )
+                userPreferenceManager.updateLastMealReminderId("$today:$ID_DELIVERY_LATE_NIGHT_WARN")
             }
             Result.success()
         } catch (e: Exception) {
@@ -58,7 +63,43 @@ class DeliveryAppDetectionWorker @AssistedInject constructor(
         }
     }
 
+    private suspend fun hasLateNightLog(today: String): Boolean =
+        mealDao.getLogsByMealDate(today)
+            .any { it.type == MealType.LATE_NIGHT || it.isLateNight }
+
+    private suspend fun hasRecentLateNightReminder(today: String): Boolean {
+        val lastReminderId = userPreferenceManager.lastMealReminderIdFlow.first()
+        return lastReminderId == "$today:$ID_LATE_NIGHT_WARN" ||
+            lastReminderId == "$today:$ID_DELIVERY_LATE_NIGHT_WARN"
+    }
+
+    private fun isLateNightRiskHour(): Boolean {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        return hour >= 21 || hour < 1
+    }
+
+    private suspend fun isInSleepTime(): Boolean {
+        val bedMinutes = userPreferenceManager.getBedTimeAsMinutes().first()
+        val wakeMinutes = userPreferenceManager.getWakeTimeAsMinutes().first()
+        val currentMinutes = currentMinutesOfDay()
+        return if (bedMinutes > wakeMinutes) {
+            currentMinutes >= bedMinutes || currentMinutes < wakeMinutes
+        } else {
+            currentMinutes in bedMinutes until wakeMinutes
+        }
+    }
+
+    private fun currentMinutesOfDay(): Int {
+        val calendar = Calendar.getInstance()
+        return calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+    }
+
+    private fun todayDateString(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
     companion object {
         private const val POLL_INTERVAL_MS = 15 * 60 * 1000L
+        private const val ID_LATE_NIGHT_WARN = "LATE_NIGHT_WARN"
+        private const val ID_DELIVERY_LATE_NIGHT_WARN = "DELIVERY_LATE_NIGHT_WARN"
     }
 }

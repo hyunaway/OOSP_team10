@@ -33,18 +33,25 @@ class WaterStatusCalculator @Inject constructor() {
         val resolvedTolerance = if (isInsidePeak) toleranceMl / 2 else toleranceMl
         val resolvedMinInterval = if (isInsidePeak) minimumIntervalMinutes / 2 else minimumIntervalMinutes
 
+        val baseGoalMl = goalMl
         val activePosition = activePosition(wakeMinutes, bedMinutes, currentMinutes)
+        val effectiveGoalMl = activePosition?.let {
+            interventionGoalMl(
+                baseGoalMl = baseGoalMl,
+                durationMinutes = it.durationMinutes,
+            )
+        } ?: baseGoalMl
         val recommendedAmountMl = activePosition?.let {
             recommendedAmountMl(
                 elapsedMinutes = it.elapsedMinutes,
                 durationMinutes = it.durationMinutes,
-                goalMl = goalMl,
+                goalMl = effectiveGoalMl,
             )
         } ?: 0
         val shortageMl = (recommendedAmountMl - currentAmountMl).coerceAtLeast(0)
         val shortageLevel = shortageLevel(shortageMl)
 
-        val hasReachedGoal = currentAmountMl >= goalMl
+        val hasReachedInterventionGoal = currentAmountMl >= effectiveGoalMl
         val isEnoughAfterLastDrink = lastDrankAt?.let {
             nowMillis - it >= resolvedMinInterval * MILLIS_PER_MINUTE
         } ?: true
@@ -52,9 +59,14 @@ class WaterStatusCalculator @Inject constructor() {
         val isNeedWater = activePosition != null &&
             activePosition.elapsedMinutes > 0 &&
             activePosition.elapsedMinutes < activePosition.durationMinutes &&
-            !hasReachedGoal &&
+            !hasReachedInterventionGoal &&
             shortageMl >= resolvedTolerance &&
             isEnoughAfterLastDrink
+
+        val isRecentlyDrankButStillShort = activePosition != null &&
+            shortageMl >= resolvedTolerance &&
+            !isEnoughAfterLastDrink &&
+            currentAmountMl < recommendedAmountMl
 
         return WaterInterventionStatus(
             recommendedAmountMl = recommendedAmountMl,
@@ -62,7 +74,12 @@ class WaterStatusCalculator @Inject constructor() {
             shortageMl = shortageMl,
             isNeedWater = isNeedWater,
             shortageLevel = shortageLevel,
-            message = messageFor(isNeedWater, shortageLevel, isInsidePeak),
+            message = messageFor(
+                isNeedWater = isNeedWater,
+                shortageLevel = shortageLevel,
+                isInsidePeak = isInsidePeak,
+                isRecentlyDrankButStillShort = isRecentlyDrankButStillShort,
+            ),
         )
     }
 
@@ -134,6 +151,20 @@ class WaterStatusCalculator @Inject constructor() {
         return weightedAmount.roundToInt().coerceIn(0, goalMl)
     }
 
+    private fun interventionGoalMl(
+        baseGoalMl: Int,
+        durationMinutes: Int,
+    ): Int {
+        if (durationMinutes <= 0) return baseGoalMl
+
+        val activityRatio = durationMinutes / STANDARD_ACTIVE_DURATION_MINUTES.toFloat()
+        val adjustedRatio = activityRatio.coerceIn(
+            MIN_ACTIVITY_GOAL_RATIO,
+            MAX_ACTIVITY_GOAL_RATIO,
+        )
+        return (baseGoalMl * adjustedRatio).roundToInt()
+    }
+
     private fun shortageLevel(shortageMl: Int): WaterShortageLevel =
         when {
             shortageMl >= 700 -> WaterShortageLevel.SEVERE
@@ -146,7 +177,9 @@ class WaterStatusCalculator @Inject constructor() {
         isNeedWater: Boolean,
         shortageLevel: WaterShortageLevel,
         isInsidePeak: Boolean = false,
+        isRecentlyDrankButStillShort: Boolean = false,
     ): String {
+        if (isRecentlyDrankButStillShort) return "방금 물을 마셨어요. 조금 뒤에 다시 확인할게요."
         if (!isNeedWater) return "좋아요. 지금 물 섭취 리듬은 괜찮아요."
         if (isInsidePeak) return "평소에 물을 자주 드시던 시간이에요! 건강을 위해 시원한 물 한 잔 어때요?"
         return when (shortageLevel) {
@@ -171,6 +204,9 @@ class WaterStatusCalculator @Inject constructor() {
         private const val MORNING_WEIGHT = 0.25f
         private const val MIDDLE_WEIGHT = 0.60f
         private const val EVENING_WEIGHT = 0.15f
+        private const val STANDARD_ACTIVE_DURATION_MINUTES = 15 * 60
+        private const val MIN_ACTIVITY_GOAL_RATIO = 0.5f
+        private const val MAX_ACTIVITY_GOAL_RATIO = 1.0f
         private const val MINUTES_PER_DAY = 24 * 60
         private const val MILLIS_PER_MINUTE = 60_000L
     }

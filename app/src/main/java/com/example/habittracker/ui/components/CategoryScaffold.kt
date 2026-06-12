@@ -36,6 +36,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.habittracker.ui.avatar.AvatarImageMapper
+import com.example.habittracker.ui.avatar.AvatarState
 import com.example.habittracker.ui.avatar.AvatarUiState
 import com.example.habittracker.ui.theme.HabitCardWhite
 import com.example.habittracker.ui.theme.HabitCategoryStyle
@@ -73,6 +75,7 @@ fun CategoryScaffold(
             )
 
             CategoryAvatarSection(
+                category = category,
                 speech = speech,
                 avatarUiState = avatarUiState,
             )
@@ -129,9 +132,12 @@ private fun CategoryTopBar(
 
 @Composable
 private fun CategoryAvatarSection(
+    category: HabitCategoryStyle,
     speech: String,
     avatarUiState: AvatarUiState,
 ) {
+    val displayImageResId = categoryAvatarImageResId(category, avatarUiState)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -139,9 +145,9 @@ private fun CategoryAvatarSection(
             .padding(horizontal = HabitSpacing.base),
         verticalAlignment = Alignment.Bottom,
     ) {
-        if (avatarUiState.imageResId != 0) {
+        if (displayImageResId != 0) {
             Image(
-                painter = painterResource(id = avatarUiState.imageResId),
+                painter = painterResource(id = displayImageResId),
                 contentDescription = "아바타",
                 modifier = Modifier
                     .width(120.dp)
@@ -189,4 +195,22 @@ private fun CategoryAvatarSection(
         }
     }
     Spacer(modifier = Modifier.height(HabitSpacing.base))
+}
+
+private fun categoryAvatarImageResId(
+    category: HabitCategoryStyle,
+    avatarUiState: AvatarUiState,
+): Int {
+    val categoryState = when (category) {
+        HabitCategoryStyle.MEAL -> AvatarState.MEAL_LACK
+        HabitCategoryStyle.WATER -> AvatarState.WATER_LACK
+        HabitCategoryStyle.DIGITAL -> AvatarState.DIGITAL_OVERUSE
+        HabitCategoryStyle.STRETCH -> AvatarState.STRETCH_LACK
+    }
+    val displayState = if (categoryState in avatarUiState.activeStates) {
+        categoryState
+    } else {
+        AvatarState.GOOD
+    }
+    return AvatarImageMapper.resolve(avatarUiState.gender, displayState)
 }
