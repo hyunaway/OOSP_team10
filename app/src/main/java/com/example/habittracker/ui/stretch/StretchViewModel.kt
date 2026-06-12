@@ -12,6 +12,7 @@ import com.example.habittracker.domain.usecase.activity.MarkUserActiveUseCase
 import com.example.habittracker.domain.usecase.stretch.CalculatePersonalizedStretchGoalUseCase
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.widget.WidgetUpdateHelper
+import com.example.habittracker.widget.StretchTimerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -154,7 +155,12 @@ class StretchViewModel @Inject constructor(
 
     fun startStretchCountdown() {
         if (_uiState.value.isStretching) return
+        if (isSharedStretchTimerRunning()) {
+            _toastMessage.value = "이미 스트레칭 타이머가 진행 중이에요."
+            return
+        }
         countdownJob?.cancel()
+        markSharedStretchTimerStarted()
         _uiState.update {
             it.copy(
                 isStretching = true,
@@ -169,12 +175,17 @@ class StretchViewModel @Inject constructor(
             }
             _uiState.update { it.copy(countdownSeconds = 0) }
             try {
-                saveStretchRecord(resolveCurrentTimeSlot())
+                val saved = saveStretchRecord(resolveCurrentTimeSlot())
+                markSharedStretchTimerCompleted()
                 _uiState.update {
                     it.copy(
                         isStretching = false,
                         countdownSeconds = STRETCH_COUNTDOWN_SECONDS,
-                        completionMessage = "잘했어요! 방금 스트레칭 1회를 완료했어요. 다음 스트레칭은 약 90분 뒤에 추천할게요.",
+                        completionMessage = if (saved) {
+                            "잘했어요! 방금 스트레칭 1회를 완료했어요. 다음 스트레칭은 약 90분 뒤에 추천할게요."
+                        } else {
+                            null
+                        },
                     )
                 }
             } catch (e: Exception) {
@@ -185,6 +196,7 @@ class StretchViewModel @Inject constructor(
                         errorMessage = e.message,
                     )
                 }
+                clearSharedStretchTimer()
             }
         }
     }
@@ -192,6 +204,7 @@ class StretchViewModel @Inject constructor(
     fun cancelStretchCountdown() {
         countdownJob?.cancel()
         countdownJob = null
+        clearSharedStretchTimer()
         _uiState.update {
             it.copy(
                 isStretching = false,
@@ -244,8 +257,15 @@ class StretchViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-    private suspend fun saveStretchRecord(timeSlot: String) {
+    private suspend fun saveStretchRecord(timeSlot: String): Boolean {
         val date = java.time.LocalDate.now().toString()
+        val existingRecord = stretchRepository.getRecordByTimeSlot(date, timeSlot)
+        if (existingRecord != null) {
+            _toastMessage.value = "이미 이 시간대 스트레칭을 기록했어요."
+            refreshData()
+            WidgetUpdateHelper.updateAllWidgetsSync(context)
+            return false
+        }
         stretchRepository.insertStretchRecord(date, timeSlot)
         markUserActiveUseCase(MarkUserActiveUseCase.SOURCE_STRETCH_LOG)
         refreshData()
@@ -266,6 +286,7 @@ class StretchViewModel @Inject constructor(
         } catch (_: Exception) {
             // 무시
         }
+        return true
     }
 
     private fun resolveCurrentTimeSlot(): String {
@@ -276,6 +297,35 @@ class StretchViewModel @Inject constructor(
             in 17..21 -> "저녁"
             else -> "기타"
         }
+    }
+
+    private fun isSharedStretchTimerRunning(): Boolean {
+        val prefs = context.getSharedPreferences(StretchTimerService.PREFS_STRETCH_TIMER, Context.MODE_PRIVATE)
+        val startedAt = prefs.getLong(StretchTimerService.KEY_TIMER_STARTED_AT, 0L)
+        return startedAt > 0L &&
+            (System.currentTimeMillis() - startedAt) < StretchTimerService.STRETCH_DURATION_MS
+    }
+
+    private fun markSharedStretchTimerStarted() {
+        context.getSharedPreferences(StretchTimerService.PREFS_STRETCH_TIMER, Context.MODE_PRIVATE).edit()
+            .putLong(StretchTimerService.KEY_TIMER_STARTED_AT, System.currentTimeMillis())
+            .remove(StretchTimerService.KEY_TIMER_COMPLETED_AT)
+            .apply()
+        WidgetUpdateHelper.updateAllWidgetsSync(context)
+    }
+
+    private fun markSharedStretchTimerCompleted() {
+        context.getSharedPreferences(StretchTimerService.PREFS_STRETCH_TIMER, Context.MODE_PRIVATE).edit()
+            .remove(StretchTimerService.KEY_TIMER_STARTED_AT)
+            .putLong(StretchTimerService.KEY_TIMER_COMPLETED_AT, System.currentTimeMillis())
+            .apply()
+    }
+
+    private fun clearSharedStretchTimer() {
+        context.getSharedPreferences(StretchTimerService.PREFS_STRETCH_TIMER, Context.MODE_PRIVATE).edit()
+            .remove(StretchTimerService.KEY_TIMER_STARTED_AT)
+            .apply()
+        WidgetUpdateHelper.updateAllWidgetsSync(context)
     }
 
 

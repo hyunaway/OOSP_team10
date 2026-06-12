@@ -69,6 +69,8 @@ class WaterStatusCalculator @Inject constructor() {
             currentAmountMl < recommendedAmountMl
 
         return WaterInterventionStatus(
+            baseGoalMl = baseGoalMl,
+            effectiveGoalMl = effectiveGoalMl,
             recommendedAmountMl = recommendedAmountMl,
             currentAmountMl = currentAmountMl,
             shortageMl = shortageMl,

@@ -113,11 +113,15 @@ class HabitStatusWidgetProvider : AppWidgetProvider() {
                             in 18..21 -> "저녁"
                             else -> "기타"
                         }
-                        ep.stretchRepository().insertStretchRecord(
-                            date = LocalDate.now().toString(),
-                            timeSlot = timeSlot,
-                        )
-                        ep.markUserActiveUseCase()("widget_stretch_log")
+                        val today = LocalDate.now().toString()
+                        val existingRecord = ep.stretchRepository().getRecordByTimeSlot(today, timeSlot)
+                        if (existingRecord == null) {
+                            ep.stretchRepository().insertStretchRecord(
+                                date = today,
+                                timeSlot = timeSlot,
+                            )
+                            ep.markUserActiveUseCase()("widget_stretch_log")
+                        }
                         WidgetUpdateHelper.updateAllWidgets(context)
                     } catch (_: Exception) {}
                 }

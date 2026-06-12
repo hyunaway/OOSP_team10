@@ -42,7 +42,8 @@ object WidgetResourceMapper {
         val digitalThresholdMinutes = prefManager.digitalInterventionThresholdMinutesFlow
             .first()
             .coerceAtLeast(1)
-        val waterGoalMl = waterStatus.recommendedAmountMl.coerceAtLeast(1)
+        val waterGoalMl = waterStatus.effectiveGoalMl.coerceAtLeast(1)
+        val waterRecommendedMl = waterStatus.recommendedAmountMl.coerceAtLeast(0)
         val stretchGoalCount = stretchInterventionStatus.personalizedGoalCount.coerceAtLeast(1)
 
         val todayMealRecordCount = listOf(
@@ -86,6 +87,7 @@ object WidgetResourceMapper {
             isWaterRisk = isWaterRisk,
             waterTotalMl = waterStatus.currentAmountMl,
             waterGoalMl = waterGoalMl,
+            waterRecommendedMl = waterRecommendedMl,
             waterShortageLevel = waterStatus.shortageLevel,
             isDigitalRisk = isDigitalRisk,
             digitalUsageMinutes = digitalStatus.totalUsageMinutes,
@@ -181,6 +183,7 @@ object WidgetResourceMapper {
         isWaterRisk: Boolean,
         waterTotalMl: Int,
         waterGoalMl: Int,
+        waterRecommendedMl: Int,
         waterShortageLevel: WaterShortageLevel,
         isDigitalRisk: Boolean,
         digitalUsageMinutes: Int,
@@ -194,9 +197,9 @@ object WidgetResourceMapper {
         HabitCardState(
             category = HabitCategory.MEAL,
             iconResId = R.drawable.widget_dot_meal,
-            statusLabel = if (isMealRisk) "식사 기록 필요" else "식사 OK",
-            description = if (isMealRisk) "식사를 놓친 것 같아요. 기록을 남겨 건강한 습관을 유지해요."
-                          else "오늘 식사 잘 챙겼어!",
+            statusLabel = if (isMealRisk) "식사를 챙겨볼까요?" else "식사 흐름 좋아요",
+            description = if (isMealRisk) "가볍게 기록해요"
+                          else "오늘 흐름 좋아요",
             actionLabel = "🍽 식사 기록하기",
             riskLevel = if (isMealRisk) RiskLevel.WARNING else RiskLevel.NORMAL,
             isActionable = mealWidgetData.todayRecordCount < mealWidgetData.targetMealCount,
@@ -205,8 +208,8 @@ object WidgetResourceMapper {
         HabitCardState(
             category = HabitCategory.WATER,
             iconResId = R.drawable.widget_dot_water,
-            statusLabel = if (isWaterRisk) "물을 마셔야 해요" else "물 섭취가 좋아요",
-            description = "${waterTotalMl}ml / ${waterGoalMl}ml",
+            statusLabel = if (isWaterRisk) "물이 조금 부족해요" else "수분 섭취 좋아요",
+            description = "${waterTotalMl}/${waterGoalMl}ml · 권장 ${waterRecommendedMl}ml",
             actionLabel = "💧 +1잔 (250ml)",
             riskLevel = when (waterShortageLevel) {
                 WaterShortageLevel.SEVERE -> RiskLevel.DANGER
@@ -215,15 +218,19 @@ object WidgetResourceMapper {
                 WaterShortageLevel.NONE -> RiskLevel.NORMAL
             },
             isActionable = isWaterRisk,
-            waterData = WaterWidgetData(currentMl = waterTotalMl, goalMl = waterGoalMl),
+            waterData = WaterWidgetData(
+                currentMl = waterTotalMl,
+                goalMl = waterGoalMl,
+                recommendedMl = waterRecommendedMl,
+            ),
         ),
         HabitCardState(
             category = HabitCategory.DIGITAL,
             iconResId = R.drawable.widget_dot_digital,
             statusLabel = when {
-                digitalUsageMinutes > digitalThresholdMinutes * 3 / 2 -> "과사용"
-                digitalUsageMinutes > digitalThresholdMinutes          -> "주의"
-                else                                                   -> "양호"
+                digitalUsageMinutes > digitalThresholdMinutes * 3 / 2 -> "사용 시간이 늘었어요"
+                digitalUsageMinutes > digitalThresholdMinutes          -> "잠깐 쉬어볼까요?"
+                else                                                   -> "사용 습관 좋아요"
             },
             description = "${digitalUsageMinutes}분 사용",
             actionLabel = "📱 사용 기록 보기",
@@ -241,7 +248,7 @@ object WidgetResourceMapper {
         HabitCardState(
             category = HabitCategory.STRETCH,
             iconResId = R.drawable.widget_dot_stretch,
-            statusLabel = if (isStretchRisk) "스트레칭 부족" else "스트레칭 OK",
+            statusLabel = if (isStretchRisk) "몸을 풀어볼까요?" else "몸이 가벼워요",
             description = "${stretchCount}회 / ${stretchGoalCount}회",
             actionLabel = "🧘 완료",
             riskLevel = if (isStretchRisk) RiskLevel.WARNING else RiskLevel.NORMAL,

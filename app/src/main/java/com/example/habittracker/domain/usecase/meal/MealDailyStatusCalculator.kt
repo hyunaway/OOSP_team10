@@ -165,7 +165,7 @@ class MealDailyStatusCalculator @Inject constructor(
                     "현재까지 식사 리듬이 괜찮아요."
                 }
             MealDailyStatusLevel.NORMAL ->
-                "아직 식사 판단을 서두르지 않아도 괜찮아요."
+                "아직 식사 판단 전이에요. 식사 시간이 되면 챙겨볼게요."
         }
 
     private fun planMessage(plan: DailyMealPlan): String =

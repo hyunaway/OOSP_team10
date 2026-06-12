@@ -40,14 +40,17 @@ class WaterViewModel @Inject constructor(
             getTodayWaterStatusUseCase()
                 .catch { e -> _uiState.update { it.copy(loading = false, errorMessage = e.message) } }
                 .collect { status ->
-                    val interventionMessage = runCatching {
-                        checkWaterInterventionNeededUseCase().message
+                    val interventionStatus = runCatching {
+                        checkWaterInterventionNeededUseCase()
                     }.getOrNull()
                     _uiState.update {
                         it.copy(
                             loading = false,
                             todayStatus = status,
-                            interventionMessage = interventionMessage,
+                            interventionMessage = interventionStatus?.message,
+                            baseGoalMl = interventionStatus?.baseGoalMl,
+                            effectiveGoalMl = interventionStatus?.effectiveGoalMl,
+                            recommendedAmountMl = interventionStatus?.recommendedAmountMl,
                         )
                     }
                 }

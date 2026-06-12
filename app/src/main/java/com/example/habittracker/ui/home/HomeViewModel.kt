@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.habittracker.data.local.UserPreferenceManager
 import com.example.habittracker.domain.analysis.PersonalizationResolver
 import com.example.habittracker.domain.model.DashboardState
+import com.example.habittracker.domain.model.StretchInterventionStatus
+import com.example.habittracker.domain.model.WaterInterventionStatus
 import com.example.habittracker.domain.repository.MealRepository
 import com.example.habittracker.domain.usecase.dashboard.GetDashboardStateUseCase
 import com.example.habittracker.domain.usecase.meal.GetCurrentMealInterventionStatusUseCase
@@ -36,6 +38,8 @@ data class HomeUiState(
     val loading: Boolean = true,
     val errorMessage: String? = null,
     val dashboardState: DashboardState? = null,
+    val waterInterventionStatus: WaterInterventionStatus? = null,
+    val stretchInterventionStatus: StretchInterventionStatus? = null,
     val avatarUiState: AvatarUiState = AvatarUiState(),
 )
 
@@ -124,6 +128,8 @@ class HomeViewModel @Inject constructor(
                 HomeUiState(
                     loading = false,
                     dashboardState = dashState,
+                    waterInterventionStatus = waterInterventionStatus,
+                    stretchInterventionStatus = stretchInterventionStatus,
                     avatarUiState = AvatarUiState(
                         gender = gender,
                         userName = name.ifEmpty { "나" },

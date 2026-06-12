@@ -28,10 +28,12 @@
         <TextView
             android:id="@+id/widget_water_amount"
             style="@style/WidgetTextStyle.Description"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="0잔 / 8잔" />
+            android:text="0/8잔"
+            android:maxLines="1"
+            android:ellipsize="end" />
 
         <ProgressBar
             android:id="@+id/widget_water_progress"

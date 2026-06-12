@@ -222,7 +222,7 @@ private fun currentMealSpeech(uiState: MealUiState): String? {
             "$mealName 잘 챙겼어요. 다음 식사 리듬도 천천히 이어가요."
         }
         uiState.currentMealInterventionReason == "not_in_meal_window" -> {
-            "오늘 식사 기록은 잘 저장되고 있어요. 다음 식사 때 다시 챙겨볼게요."
+            "아직 식사 판단 전이에요. 식사 시간이 되면 챙겨볼게요."
         }
         else -> null
     }
